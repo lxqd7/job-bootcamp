@@ -1,0 +1,51 @@
+server:
+  port: ${USER_PORT:18081}
+  shutdown: graceful
+
+spring:
+  application:
+    name: bootcamp-user
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${USER_DB_NAME:bc_user}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    issuer: bootcamp-user
+    audience: bootcamp-client
+    access-ttl-seconds: 900
+    refresh-ttl-seconds: 604800
+    private-key-path: ${JWT_PRIVATE_KEY_PATH:.local-run/jwt/private.pem}
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:.local-run/jwt/public.pem}
+    allow-generate: ${JWT_ALLOW_GENERATE:true}
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+  demo:
+    seed-enabled: ${DEMO_SEED_ENABLED:true}
+    password: ${DEMO_PASSWORD:Demo@123456}
+  internal:
+    secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+  level:
+    com.jobbootcamp: INFO

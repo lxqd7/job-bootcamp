@@ -1,0 +1,21 @@
+# Build output
+backend/**/target/
+frontend/node_modules/
+frontend/**/node_modules/
+frontend/**/dist/
+
+# Local runtime and secrets
+.local-run/
+config/local.env.ps1
+
+# Generated acceptance artifacts; keep only markdown records
+tests/results/*
+!tests/results/*.md
+
+# IDE
+.idea/
+*.iml
+
+# OS
+Thumbs.db
+.DS_Store

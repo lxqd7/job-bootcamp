@@ -1,0 +1,75 @@
+server:
+  port: ${GATEWAY_PORT:18080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: bootcamp-gateway
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: marketing-service
+              uri: http://127.0.0.1:18087
+              predicates:
+                - Path=/api/v1/me/points,/api/v1/me/points/**
+            - id: user-service
+              uri: http://127.0.0.1:18081
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/me,/api/v1/me/**,/api/v1/admin/users/**
+            - id: course-admin
+              uri: http://127.0.0.1:18082
+              predicates:
+                - Path=/api/v1/admin/courses/**,/api/v1/admin/categories/**,/api/v1/admin/chapters/**,/api/v1/admin/lessons/**,/api/v1/admin/routes/**,/api/v1/admin/teachers/**,/api/v1/admin/media/**
+            - id: course-service
+              uri: http://127.0.0.1:18082
+              predicates:
+                - Path=/api/v1/categories,/api/v1/categories/**,/api/v1/courses,/api/v1/courses/**,/api/v1/routes,/api/v1/routes/**,/api/v1/teacher/**
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - http://localhost:15173
+                  - http://localhost:15174
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - Authorization
+                  - Content-Type
+                  - X-CSRF-Token
+                  - X-Client-App
+                allowCredentials: true
+                maxAge: 3600
+
+app:
+  session-check:
+    url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+    timeout-ms: 2000
+  internal:
+    secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
+    issuer: bootcamp-gateway
+    audience: bootcamp-user
+    operation: sessions:check
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    level: "%5p"
+  level:
+    com.jobbootcamp: INFO

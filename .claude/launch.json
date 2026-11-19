@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "student",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev:student"],
+      "port": 15173
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev:admin"],
+      "port": 15174
+    },
+    {
+      "name": "student-attach",
+      "url": "http://localhost:15173"
+    },
+    {
+      "name": "admin-attach",
+      "url": "http://localhost:15174"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+server:
+  port: ${COURSE_PORT:18082}
+  shutdown: graceful
+
+spring:
+  application:
+    name: bootcamp-course
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:bc_course}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  internal:
+    secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
+  user:
+    session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+  demo:
+    seed-enabled: ${DEMO_SEED_ENABLED:true}
+  media:
+    demo-root: ${DEMO_MEDIA_ROOT:media/demo}
+    signing-key: ${MEDIA_SIGNING_KEY:dev-demo-media-signing-key}
+    demo-import-enabled: ${DEMO_MEDIA_IMPORT_ENABLED:true}
+    preview-ttl-seconds: 120
+    vod:
+      enabled: ${VOD_ENABLED:false}
+      app-id: ${VOD_APP_ID:}
+      secret-id: ${VOD_SECRET_ID:}
+      secret-key: ${VOD_SECRET_KEY:}
+      region: ${VOD_REGION:ap-guangzhou}
+      url-key: ${VOD_URL_KEY:}
+      pcfg: ${VOD_PCFG:}
+      procedure: ${VOD_PROCEDURE:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+  level:
+    com.jobbootcamp: INFO

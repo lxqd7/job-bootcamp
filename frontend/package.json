@@ -1,0 +1,15 @@
+{
+  "name": "job-bootcamp-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "student",
+    "admin"
+  ],
+  "scripts": {
+    "dev:student": "npm run dev -w @jobbootcamp/student",
+    "dev:admin": "npm run dev -w @jobbootcamp/admin",
+    "typecheck": "npm run typecheck -w @jobbootcamp/student && npm run typecheck -w @jobbootcamp/admin",
+    "build": "npm run build -w @jobbootcamp/student && npm run build -w @jobbootcamp/admin"
+  }
+}
