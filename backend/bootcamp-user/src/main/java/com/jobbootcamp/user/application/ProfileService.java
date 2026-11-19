@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.common.web.ErrorData;
+import com.jobbootcamp.contracts.internal.ProfileBatchItem;
 import com.jobbootcamp.user.domain.UserAccount;
 import com.jobbootcamp.user.domain.dto.MeResponse;
 import com.jobbootcamp.user.domain.dto.UpdateProfileRequest;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ProfileService {
@@ -40,6 +42,31 @@ public class ProfileService {
                 user.getAvatarUrl(),
                 permissions,
                 user.getRevision());
+    }
+
+    public List<ProfileBatchItem> batchProfiles(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = userIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .map(Long::valueOf)
+                .distinct()
+                .limit(100)
+                .toList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return userMapper.selectBatchIds(ids).stream()
+                .map(user -> new ProfileBatchItem(
+                        String.valueOf(user.getId()),
+                        user.getNickname(),
+                        user.getRoleCode(),
+                        Boolean.TRUE.equals(user.getEnabled()),
+                        user.getRevision() == null ? 0 : user.getRevision()))
+                .toList();
     }
 
     @Transactional

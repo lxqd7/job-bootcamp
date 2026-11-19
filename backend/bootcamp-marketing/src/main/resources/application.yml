@@ -24,15 +24,24 @@ spring:
     password: ${RABBIT_PASSWORD:guest}
     virtual-host: ${RABBIT_VHOST:/job-bootcamp-dev}
     publisher-confirm-type: correlated
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
 
 app:
   internal:
     secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
   user:
     session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+    profile-batch-url: ${USER_PROFILE_BATCH_URL:http://127.0.0.1:18081/int/v1/profiles/batch}
   points:
     daily-video-cap: 50
     test-api-enabled: ${POINTS_TEST_API_ENABLED:false}
+  redis:
+    enabled: ${REDIS_ENABLED:true}
+    key-prefix: ${REDIS_KEY_PREFIX:bc:dev:}
   outbox:
     relay-enabled: ${OUTBOX_RELAY_ENABLED:false}
     poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:2000}
@@ -52,6 +61,8 @@ management:
   health:
     rabbit:
       enabled: ${RABBIT_HEALTH_ENABLED:false}
+    redis:
+      enabled: ${REDIS_HEALTH_ENABLED:false}
 
 logging:
   pattern:

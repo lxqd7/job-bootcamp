@@ -21,4 +21,15 @@ public interface PointsMonthMapper {
 
     @Select("SELECT COALESCE(MAX(score), 0) FROM points_month WHERE month = #{month} AND user_id = #{userId}")
     Long selectScore(@Param("month") String month, @Param("userId") Long userId);
+
+    @Insert("""
+            INSERT INTO points_month(month, user_id, score, revision)
+            VALUES (#{month}, #{userId}, #{score}, 1) AS incoming
+            ON DUPLICATE KEY UPDATE
+                score = incoming.score,
+                revision = points_month.revision + 1
+            """)
+    int setScore(@Param("month") String month,
+                 @Param("userId") Long userId,
+                 @Param("score") long score);
 }

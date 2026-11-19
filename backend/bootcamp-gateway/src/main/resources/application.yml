@@ -15,7 +15,7 @@ spring:
             - id: marketing-service
               uri: http://127.0.0.1:18087
               predicates:
-                - Path=/api/v1/me/points,/api/v1/me/points/**
+                - Path=/api/v1/me/points,/api/v1/me/points/**,/api/v1/sign-ins,/api/v1/boards/**
             - id: user-service
               uri: http://127.0.0.1:18081
               predicates:

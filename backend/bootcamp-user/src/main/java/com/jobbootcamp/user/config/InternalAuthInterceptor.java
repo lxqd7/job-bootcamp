@@ -23,9 +23,12 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        String operation = request.getRequestURI().startsWith("/int/v1/profiles")
+                ? "profiles:batch"
+                : "sessions:check";
         try {
             InternalTokenCodec.verify(secret, request.getHeader(SERVICE_TOKEN_HEADER),
-                    "bootcamp-user", "sessions:check");
+                    "bootcamp-user", operation);
             return true;
         } catch (InternalTokenException e) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "内部服务凭据无效");

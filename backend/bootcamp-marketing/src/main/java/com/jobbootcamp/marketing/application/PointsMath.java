@@ -18,6 +18,15 @@ public final class PointsMath {
         return new DebtOffset(offset, reward - offset);
     }
 
+    public static int signBonus(int continuousDays) {
+        return switch (continuousDays) {
+            case 7 -> 10;
+            case 14 -> 20;
+            case 28 -> 40;
+            default -> 0;
+        };
+    }
+
     public record DebtOffset(long debtReduced, long balanceAdded) {
     }
 }

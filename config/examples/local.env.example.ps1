@@ -13,6 +13,8 @@ $env:COURSE_PORT = '18082'
 $env:USER_PORT = '18081'
 $env:MARKETING_PORT = '18087'
 $env:GATEWAY_PORT = '18080'
+$env:REDIS_HOST = '127.0.0.1'
+$env:REDIS_PORT = '6379'
 
 # 仅本地验收使用；保持 false 时 /dev 积分测试接口不会注册。
 $env:POINTS_TEST_API_ENABLED = 'false'

@@ -9,16 +9,20 @@ import com.jobbootcamp.marketing.domain.OutboxEvent;
 import com.jobbootcamp.marketing.domain.PointsAccount;
 import com.jobbootcamp.marketing.domain.PointsDayQuota;
 import com.jobbootcamp.marketing.domain.PointsLedger;
+import com.jobbootcamp.marketing.domain.SignRecord;
 import com.jobbootcamp.marketing.domain.dto.PageResponse;
 import com.jobbootcamp.marketing.domain.dto.PointsAwardResult;
 import com.jobbootcamp.marketing.domain.dto.PointsLedgerView;
 import com.jobbootcamp.marketing.domain.dto.PointsSummary;
+import com.jobbootcamp.marketing.domain.dto.SignResult;
+import com.jobbootcamp.marketing.domain.dto.SignStatus;
 import com.jobbootcamp.marketing.domain.dto.TestAccountState;
 import com.jobbootcamp.marketing.infrastructure.OutboxEventMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsAccountMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsDayQuotaMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsLedgerMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsMonthMapper;
+import com.jobbootcamp.marketing.infrastructure.SignRecordMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,7 @@ import java.util.UUID;
 public class PointsService {
 
     public static final String TYPE_VIDEO = "VIDEO";
+    public static final String TYPE_SIGN = "SIGN";
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final String PROJECTION_EVENT = "marketing.projection-changed.v1";
 
@@ -47,6 +52,8 @@ public class PointsService {
     private final PointsDayQuotaMapper dayQuotaMapper;
     private final PointsMonthMapper monthMapper;
     private final OutboxEventMapper outboxEventMapper;
+    private final SignRecordMapper signMapper;
+    private final SignCacheService signCacheService;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate rowTemplate;
     private final int dailyVideoCap;
@@ -56,6 +63,8 @@ public class PointsService {
                          PointsDayQuotaMapper dayQuotaMapper,
                          PointsMonthMapper monthMapper,
                          OutboxEventMapper outboxEventMapper,
+                         SignRecordMapper signMapper,
+                         SignCacheService signCacheService,
                          PlatformTransactionManager transactionManager,
                          @Value("${app.points.daily-video-cap:50}") int dailyVideoCap) {
         this.accountMapper = accountMapper;
@@ -63,6 +72,8 @@ public class PointsService {
         this.dayQuotaMapper = dayQuotaMapper;
         this.monthMapper = monthMapper;
         this.outboxEventMapper = outboxEventMapper;
+        this.signMapper = signMapper;
+        this.signCacheService = signCacheService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -86,7 +97,8 @@ public class PointsService {
             dayQuotaMapper.insertIfAbsent(userId, businessDate, nowUtc);
         });
         try {
-            return transactionTemplate.execute(status -> awardInTransaction(userId, lessonId, points, occurredAt, businessKey));
+            return transactionTemplate.execute(status ->
+                    awardVideoInTransaction(userId, points, occurredAt, businessKey));
         } catch (LedgerDuplicateException e) {
             PointsLedger duplicate = findLedger(TYPE_VIDEO, businessKey);
             if (duplicate == null) {
@@ -96,25 +108,20 @@ public class PointsService {
         }
     }
 
-    private PointsAwardResult awardInTransaction(long userId, long lessonId, int points,
-                                                 Instant occurredAt, String businessKey) {
+    private PointsAwardResult awardVideoInTransaction(long userId, int points,
+                                                      Instant occurredAt, String businessKey) {
         PointsLedger existing = findLedger(TYPE_VIDEO, businessKey);
         if (existing != null) {
             return toResult(existing, true);
         }
         LocalDate businessDate = occurredAt.atZone(SHANGHAI).toLocalDate();
-        String businessMonth = YearMonth.from(businessDate).toString();
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime occurredUtc = LocalDateTime.ofInstant(occurredAt, ZoneOffset.UTC);
 
         PointsAccount account = accountMapper.selectForUpdate(userId);
         PointsLedger raced = findLedger(TYPE_VIDEO, businessKey);
         if (raced != null) {
             return toResult(raced, true);
         }
-        long available = account.getAvailable();
-        long debt = account.getDebt();
-
         PointsDayQuota quota = dayQuotaMapper.selectForUpdate(userId, businessDate);
         int awarded = PointsMath.dailyAward(points, quota.getAwardedPoints(), dailyVideoCap);
         String resultCode = null;
@@ -122,20 +129,116 @@ public class PointsService {
             resultCode = "SKIPPED_DAILY_CAP";
         } else {
             dayQuotaMapper.addAwarded(userId, businessDate, awarded, nowUtc);
-            PointsMath.DebtOffset offset = PointsMath.offsetDebt(debt, awarded);
-            available = available + offset.balanceAdded();
-            debt = debt - offset.debtReduced();
+        }
+        return applyReward(account, userId, TYPE_VIDEO, businessKey, awarded,
+                businessDate, occurredAt, resultCode, nowUtc);
+    }
+
+    public SignResult signIn(long userId) {
+        LocalDate today = LocalDate.now(SHANGHAI);
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        rowTemplate.executeWithoutResult(status -> accountMapper.insertIfAbsent(userId, nowUtc));
+        SignResult result;
+        try {
+            result = transactionTemplate.execute(status -> signInTransaction(userId, today, nowUtc));
+        } catch (SignDuplicateException e) {
+            result = currentSignResult(userId, today);
+        }
+        if (result != null && !result.alreadySigned()) {
+            signCacheService.mark(userId, today);
+        }
+        return result;
+    }
+
+    private SignResult signInTransaction(long userId, LocalDate today, LocalDateTime nowUtc) {
+        PointsAccount account = accountMapper.selectForUpdate(userId);
+        SignRecord existing = signMapper.select(userId, today);
+        if (existing != null) {
+            return toSignResult(existing, true, account);
+        }
+        LocalDate yesterday = today.minusDays(1);
+        SignRecord previous = YearMonth.from(yesterday).equals(YearMonth.from(today))
+                ? signMapper.select(userId, yesterday)
+                : null;
+        int continuousDays = previous == null ? 1 : previous.getContinuousDays() + 1;
+        int bonus = PointsMath.signBonus(continuousDays);
+        int base = 1;
+        int total = base + bonus;
+
+        SignRecord record = new SignRecord();
+        record.setUserId(userId);
+        record.setBusinessDate(today);
+        record.setContinuousDays(continuousDays);
+        record.setBasePoints(base);
+        record.setBonusPoints(bonus);
+        record.setOccurredAt(nowUtc);
+        record.setCreatedAt(nowUtc);
+        try {
+            signMapper.insert(record);
+        } catch (DuplicateKeyException e) {
+            throw new SignDuplicateException();
+        }
+
+        PointsAwardResult award = applyReward(account, userId, TYPE_SIGN,
+                userId + ":" + today, total, today, nowUtc.toInstant(ZoneOffset.UTC), null, nowUtc);
+        return new SignResult(today, base, bonus, total, continuousDays, false,
+                award.available(), award.debt(), award.monthScore());
+    }
+
+    public SignStatus signStatus(long userId, String requestedMonth) {
+        YearMonth month;
+        try {
+            month = requestedMonth == null || requestedMonth.isBlank()
+                    ? YearMonth.now(SHANGHAI)
+                    : YearMonth.parse(requestedMonth);
+        } catch (RuntimeException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "月份格式应为 YYYY-MM");
+        }
+        signCacheService.ensure(userId, month);
+        LocalDate today = LocalDate.now(SHANGHAI);
+        SignRecord record = signMapper.select(userId, today);
+        List<SignRecord> monthRecords = signMapper.selectBetween(userId, month.atDay(1), month.atEndOfMonth());
+        List<Integer> days = monthRecords.stream()
+                .map(item -> item.getBusinessDate().getDayOfMonth())
+                .toList();
+        boolean currentMonth = YearMonth.from(today).equals(month);
+        PointsAccount account = accountMapper.selectById(userId);
+        Long score = monthMapper.selectScore(month.toString(), userId);
+        SignRecord todayRecord = currentMonth ? record : null;
+        return new SignStatus(month.toString(), today,
+                todayRecord != null,
+                todayRecord == null ? 0 : todayRecord.getContinuousDays(),
+                todayRecord == null ? 0 : todayRecord.getBasePoints() + todayRecord.getBonusPoints(),
+                monthRecords.size(), days,
+                account == null ? 0 : account.getAvailable(),
+                account == null ? 0 : account.getDebt(),
+                score == null ? 0 : score);
+    }
+
+    private PointsAwardResult applyReward(PointsAccount account, long userId, String type,
+                                           String businessKey, int awarded, LocalDate businessDate,
+                                           Instant occurredAt, String resultCode, LocalDateTime nowUtc) {
+        String businessMonth = YearMonth.from(businessDate).toString();
+        LocalDateTime occurredUtc = LocalDateTime.ofInstant(occurredAt, ZoneOffset.UTC);
+        long availableBefore = account.getAvailable();
+        long debtBefore = account.getDebt();
+        long available = availableBefore;
+        long debt = debtBefore;
+        if (awarded > 0) {
+            PointsMath.DebtOffset offset = PointsMath.offsetDebt(debtBefore, awarded);
+            available = availableBefore + offset.balanceAdded();
+            debt = debtBefore - offset.debtReduced();
             accountMapper.updateBalances(userId, available, debt, nowUtc);
             monthMapper.addScore(businessMonth, userId, awarded);
         }
 
         PointsLedger ledger = new PointsLedger();
         ledger.setUserId(userId);
-        ledger.setType(TYPE_VIDEO);
+        ledger.setType(type);
         ledger.setBusinessKey(businessKey);
         ledger.setRewardPoints((long) awarded);
-        ledger.setBalanceDelta(awarded == 0 ? 0L : available - account.getAvailable());
-        ledger.setDebtDelta(awarded == 0 ? 0L : debt - account.getDebt());
+        ledger.setBalanceDelta(available - availableBefore);
+        ledger.setDebtDelta(debt - debtBefore);
         ledger.setRankDelta((long) awarded);
         ledger.setBalanceAfter(available);
         ledger.setDebtAfter(debt);
@@ -219,6 +322,38 @@ public class PointsService {
         });
     }
 
+    public void seedSignDaysForTest(long userId, int days, LocalDate endDate) {
+        if (days < 1 || days > 60) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "测试签到天数不合法");
+        }
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        for (int i = 0; i < days; i++) {
+            LocalDate date = endDate.minusDays(days - 1L - i);
+            SignRecord record = new SignRecord();
+            record.setUserId(userId);
+            record.setBusinessDate(date);
+            record.setContinuousDays(i + 1);
+            record.setBasePoints(1);
+            record.setBonusPoints(0);
+            record.setOccurredAt(now);
+            record.setCreatedAt(now);
+            try {
+                signMapper.insert(record);
+            } catch (DuplicateKeyException ignored) {
+                // 测试夹具重复执行时保留已有记录
+            }
+        }
+    }
+
+    public void setMonthScoreForTest(long userId, String month, long score) {
+        YearMonth.parse(month);
+        monthMapper.setScore(month, userId, Math.max(0, score));
+    }
+
+    public void rebuildSignCacheForTest(long userId, String month) {
+        signCacheService.rebuild(userId, YearMonth.parse(month));
+    }
+
     public PageResponse<PointsLedgerView> ledger(long userId, int page, int pageSize) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(100, Math.max(1, pageSize));
@@ -236,6 +371,25 @@ public class PointsService {
         return new PageResponse<>(items, result.getTotal(), result.getCurrent(), result.getSize());
     }
 
+    private SignResult currentSignResult(long userId, LocalDate date) {
+        PointsAccount account = accountMapper.selectById(userId);
+        SignRecord record = signMapper.select(userId, date);
+        if (record == null) {
+            throw new BusinessException(ErrorCode.CONFLICT, "签到记录已变化，请刷新后重试");
+        }
+        return toSignResult(record, true, account);
+    }
+
+    private SignResult toSignResult(SignRecord record, boolean duplicate, PointsAccount account) {
+        Long score = monthMapper.selectScore(YearMonth.from(record.getBusinessDate()).toString(),
+                record.getUserId());
+        return new SignResult(record.getBusinessDate(), record.getBasePoints(), record.getBonusPoints(),
+                record.getBasePoints() + record.getBonusPoints(), record.getContinuousDays(), duplicate,
+                account == null ? 0 : account.getAvailable(),
+                account == null ? 0 : account.getDebt(),
+                score == null ? 0 : score);
+    }
+
     private PointsLedger findLedger(String type, String businessKey) {
         return ledgerMapper.selectOne(Wrappers.<PointsLedger>lambdaQuery()
                 .eq(PointsLedger::getType, type)
@@ -250,5 +404,8 @@ public class PointsService {
     }
 
     private static final class LedgerDuplicateException extends RuntimeException {
+    }
+
+    private static final class SignDuplicateException extends RuntimeException {
     }
 }

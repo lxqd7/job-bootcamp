@@ -30,4 +30,16 @@ class PointsMathTest {
         assertThat(PointsMath.dailyAward(-1, 0, 50)).isZero();
         assertThat(PointsMath.offsetDebt(-1, 10).balanceAdded()).isEqualTo(10);
     }
+
+    @Test
+    void signBonusOnlyOnNamedStreakDays() {
+        assertThat(PointsMath.signBonus(6)).isZero();
+        assertThat(PointsMath.signBonus(7)).isEqualTo(10);
+        assertThat(PointsMath.signBonus(8)).isZero();
+        assertThat(PointsMath.signBonus(13)).isZero();
+        assertThat(PointsMath.signBonus(14)).isEqualTo(20);
+        assertThat(PointsMath.signBonus(27)).isZero();
+        assertThat(PointsMath.signBonus(28)).isEqualTo(40);
+        assertThat(PointsMath.signBonus(29)).isZero();
+    }
 }
