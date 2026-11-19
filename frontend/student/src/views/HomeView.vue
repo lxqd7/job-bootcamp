@@ -110,7 +110,7 @@ onMounted(refresh)
 <template>
   <AppShell>
     <section class="hero">
-      <p class="stage">阶段 S03 · 课程目录</p>
+      <p class="stage">阶段 S04 · 积分与签到</p>
       <h1>欢迎回来{{ me ? `，${me.nickname}` : '' }}</h1>
       <p class="lead">
         这一页通过网关读取真实数据。你的登录状态、刷新 cookie 和课程分类都来自本地服务，不是写死的演示内容。

@@ -9,6 +9,9 @@ import CourseListView from '../views/CourseListView.vue'
 import CourseDetailView from '../views/CourseDetailView.vue'
 import RouteListView from '../views/RouteListView.vue'
 import RouteDetailView from '../views/RouteDetailView.vue'
+import SignInView from '../views/SignInView.vue'
+import PointsView from '../views/PointsView.vue'
+import BoardView from '../views/BoardView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -20,6 +23,9 @@ const router = createRouter({
     { path: '/courses/:id', name: 'course-detail', component: CourseDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/routes', name: 'routes', component: RouteListView, meta: { roles: ['STUDENT'] } },
     { path: '/routes/:id', name: 'route-detail', component: RouteDetailView, meta: { roles: ['STUDENT'] } },
+    { path: '/sign-in', name: 'sign-in', component: SignInView, meta: { roles: ['STUDENT'] } },
+    { path: '/me/points', name: 'points', component: PointsView, meta: { roles: ['STUDENT'] } },
+    { path: '/boards', name: 'boards', component: BoardView, meta: { roles: ['STUDENT'] } },
     { path: '/me', name: 'profile', component: ProfileView, meta: { roles: ['STUDENT'] } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { public: true } }
   ]

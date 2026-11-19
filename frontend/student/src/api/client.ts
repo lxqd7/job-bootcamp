@@ -2,12 +2,17 @@ import axios from 'axios'
 import { http } from './http'
 import type {
   ApiEnvelope,
+  BoardResponse,
   CategoryNode,
   CourseDetail,
   CourseSummary,
   PageResponse,
+  PointsLedgerItem,
+  PointsSummary,
   RouteDetail,
-  RouteSummary
+  RouteSummary,
+  SignResult,
+  SignStatus
 } from './types'
 
 export interface CategoryResult {
@@ -63,6 +68,53 @@ export async function loadRoute(id: string): Promise<RouteDetail> {
   const { data } = await http.get<ApiEnvelope<RouteDetail>>(`/api/v1/routes/${id}`)
   if (data.code !== 'OK') {
     throw new Error(data.message || '路线详情接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadPointsSummary(): Promise<PointsSummary> {
+  const { data } = await http.get<ApiEnvelope<PointsSummary>>('/api/v1/me/points')
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '积分接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadPointsLedger(page = 1, pageSize = 20): Promise<PageResponse<PointsLedgerItem>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<PointsLedgerItem>>>(
+    '/api/v1/me/points/ledger',
+    { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '积分流水接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadSignStatus(month?: string): Promise<SignStatus> {
+  const { data } = await http.get<ApiEnvelope<SignStatus>>('/api/v1/sign-ins', {
+    params: month ? { month } : undefined
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '签到状态接口返回异常')
+  }
+  return data.data
+}
+
+export async function signIn(): Promise<SignResult> {
+  const { data } = await http.post<ApiEnvelope<SignResult>>('/api/v1/sign-ins')
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '签到失败')
+  }
+  return data.data
+}
+
+export async function loadBoard(month: string, page = 1, pageSize = 20): Promise<BoardResponse> {
+  const { data } = await http.get<ApiEnvelope<BoardResponse>>('/api/v1/boards/monthly', {
+    params: { month, page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '月榜接口返回异常')
   }
   return data.data
 }

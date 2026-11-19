@@ -117,3 +117,64 @@ export interface RouteDetail {
   draft: boolean
   members: RouteMemberView[]
 }
+
+export interface PointsSummary {
+  available: number
+  debt: number
+  currentMonthScore: number
+}
+
+export interface PointsLedgerItem {
+  id: string
+  type: string
+  rewardPoints: number
+  balanceDelta: number
+  debtDelta: number
+  rankDelta: number
+  balanceAfter: number
+  debtAfter: number
+  businessDate: string
+  businessMonth: string
+  occurredAt: string
+  resultCode: string | null
+}
+
+export interface SignStatus {
+  month: string
+  date: string
+  signedToday: boolean
+  continuousDays: number
+  todayPoints: number
+  monthSignedDays: number
+  days: number[]
+  available: number
+  debt: number
+  currentMonthScore: number
+}
+
+export interface SignResult {
+  date: string
+  basePoints: number
+  bonusPoints: number
+  rewardPoints: number
+  continuousDays: number
+  alreadySigned: boolean
+  available: number
+  debt: number
+  monthScore: number
+}
+
+export interface BoardItem {
+  nickname: string
+  score: number
+  rank: number
+}
+
+export interface BoardResponse {
+  month: string
+  items: BoardItem[]
+  total: number
+  page: number
+  pageSize: number
+  myRank: number | null
+}

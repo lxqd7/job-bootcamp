@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$SkipCheck)
+param([switch]$SkipCheck, [switch]$SkipFrontend)
 
 . (Join-Path $PSScriptRoot 'lib\common.ps1')
 
@@ -62,17 +62,21 @@ try {
         -RedirectStandardError (Join-Path $logDir 'marketing.err.log') `
         -PassThru -WindowStyle Hidden
 
-    $student = Start-Process -FilePath $cmd -ArgumentList @('/c', 'npm', 'run', 'dev:student') `
-        -WorkingDirectory $frontendDir `
-        -RedirectStandardOutput (Join-Path $logDir 'student.out.log') `
-        -RedirectStandardError (Join-Path $logDir 'student.err.log') `
-        -PassThru -WindowStyle Hidden
+    $student = $null
+    $admin = $null
+    if (-not $SkipFrontend) {
+        $student = Start-Process -FilePath $cmd -ArgumentList @('/c', 'npm', 'run', 'dev:student') `
+            -WorkingDirectory $frontendDir `
+            -RedirectStandardOutput (Join-Path $logDir 'student.out.log') `
+            -RedirectStandardError (Join-Path $logDir 'student.err.log') `
+            -PassThru -WindowStyle Hidden
 
-    $admin = Start-Process -FilePath $cmd -ArgumentList @('/c', 'npm', 'run', 'dev:admin') `
-        -WorkingDirectory $frontendDir `
-        -RedirectStandardOutput (Join-Path $logDir 'admin.out.log') `
-        -RedirectStandardError (Join-Path $logDir 'admin.err.log') `
-        -PassThru -WindowStyle Hidden
+        $admin = Start-Process -FilePath $cmd -ArgumentList @('/c', 'npm', 'run', 'dev:admin') `
+            -WorkingDirectory $frontendDir `
+            -RedirectStandardOutput (Join-Path $logDir 'admin.out.log') `
+            -RedirectStandardError (Join-Path $logDir 'admin.err.log') `
+            -PassThru -WindowStyle Hidden
+    }
 
     $userPort = if ($env:USER_PORT) { [int]$env:USER_PORT } else { 18081 }
     $marketingPort = if ($env:MARKETING_PORT) { [int]$env:MARKETING_PORT } else { 18087 }
@@ -81,10 +85,12 @@ try {
         [pscustomobject]@{ kind = 'gateway'; pid = $gateway.Id; port = $gatewayPort; url = "http://127.0.0.1:$gatewayPort/actuator/health" },
         [pscustomobject]@{ kind = 'course'; pid = $course.Id; port = [int]$env:COURSE_PORT; url = "http://127.0.0.1:$($env:COURSE_PORT)/actuator/health" },
         [pscustomobject]@{ kind = 'user'; pid = $user.Id; port = $userPort; url = "http://127.0.0.1:$userPort/actuator/health" },
-        [pscustomobject]@{ kind = 'marketing'; pid = $marketing.Id; port = $marketingPort; url = "http://127.0.0.1:$marketingPort/actuator/health" },
-        [pscustomobject]@{ kind = 'student'; pid = $student.Id; port = 15173; url = 'http://localhost:15173/' },
-        [pscustomobject]@{ kind = 'admin'; pid = $admin.Id; port = 15174; url = 'http://localhost:15174/' }
+        [pscustomobject]@{ kind = 'marketing'; pid = $marketing.Id; port = $marketingPort; url = "http://127.0.0.1:$marketingPort/actuator/health" }
     )
+    if (-not $SkipFrontend) {
+        $records += [pscustomobject]@{ kind = 'student'; pid = $student.Id; port = 15173; url = 'http://localhost:15173/' }
+        $records += [pscustomobject]@{ kind = 'admin'; pid = $admin.Id; port = 15174; url = 'http://localhost:15174/' }
+    }
     $records | ConvertTo-Json -Depth 3 | Set-Content -Path $pidFile -Encoding UTF8
 
     Write-Info 'Waiting for services to become ready...'
@@ -108,8 +114,10 @@ try {
     Write-Ok "Course service : http://127.0.0.1:$($env:COURSE_PORT)/actuator/health"
     Write-Ok "User service   : http://127.0.0.1:$userPort/actuator/health"
     Write-Ok "Marketing      : http://127.0.0.1:$marketingPort/actuator/health"
-    Write-Ok 'Student app    : http://localhost:15173/'
-    Write-Ok 'Admin app      : http://localhost:15174/'
+    if (-not $SkipFrontend) {
+        Write-Ok 'Student app    : http://localhost:15173/'
+        Write-Ok 'Admin app      : http://localhost:15174/'
+    }
     Write-Info 'PIDs are recorded in .local-run/pids.json; logs are in .local-run/logs.'
     Write-Info 'Stop with: powershell -ExecutionPolicy Bypass -File scripts/stop-local.ps1'
     exit 0

@@ -12,6 +12,9 @@ const links = computed(() => [
   { to: '/', label: '首页' },
   { to: '/courses', label: '课程' },
   { to: '/routes', label: '路线' },
+  { to: '/sign-in', label: '签到' },
+  { to: '/me/points', label: '积分' },
+  { to: '/boards', label: '月榜' },
   { to: '/me', label: '个人资料' }
 ])
 

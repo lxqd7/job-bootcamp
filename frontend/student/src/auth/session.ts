@@ -292,6 +292,9 @@ export function describeAuthError(error: unknown): string {
     if (error.response?.status === 401) {
       return '用户名或密码错误，或登录已失效。'
     }
+    if (error.response && error.response.status >= 500) {
+      return '服务暂时不可用，请确认本地服务已启动后重试。'
+    }
     if (error.code === 'ECONNABORTED') {
       return '请求超时，请稍后重试。'
     }
