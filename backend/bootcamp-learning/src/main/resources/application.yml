@@ -1,0 +1,40 @@
+server:
+  port: ${LEARNING_PORT:18083}
+  shutdown: graceful
+
+spring:
+  application:
+    name: bootcamp-learning
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${LEARNING_DB_NAME:bc_learning}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  internal:
+    secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
+  user:
+    session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+  level:
+    com.jobbootcamp: INFO

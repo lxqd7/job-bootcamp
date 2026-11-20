@@ -12,6 +12,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: learning-service
+              uri: http://127.0.0.1:18083
+              predicates:
+                - Path=/api/v1/me/courses,/api/v1/me/routes
             - id: marketing-service
               uri: http://127.0.0.1:18087
               predicates:
@@ -27,7 +31,7 @@ spring:
             - id: course-service
               uri: http://127.0.0.1:18082
               predicates:
-                - Path=/api/v1/categories,/api/v1/categories/**,/api/v1/courses,/api/v1/courses/**,/api/v1/routes,/api/v1/routes/**,/api/v1/teacher/**
+                - Path=/api/v1/categories,/api/v1/categories/**,/api/v1/courses,/api/v1/courses/**,/api/v1/claims/**,/api/v1/routes,/api/v1/routes/**,/api/v1/teacher/**
           globalcors:
             cors-configurations:
               '[/**]':

@@ -32,6 +32,7 @@ try {
     $java = (Get-Command java).Source
     $courseJar = Join-Path $root 'backend\bootcamp-course\target\bootcamp-course-0.1.0-SNAPSHOT.jar'
     $userJar = Join-Path $root 'backend\bootcamp-user\target\bootcamp-user-0.1.0-SNAPSHOT.jar'
+    $learningJar = Join-Path $root 'backend\bootcamp-learning\target\bootcamp-learning-0.1.0-SNAPSHOT.jar'
     $marketingJar = Join-Path $root 'backend\bootcamp-marketing\target\bootcamp-marketing-0.1.0-SNAPSHOT.jar'
     $gatewayJar = Join-Path $root 'backend\bootcamp-gateway\target\bootcamp-gateway-0.1.0-SNAPSHOT.jar'
     $cmd = (Get-Command cmd.exe).Source
@@ -62,6 +63,12 @@ try {
         -RedirectStandardError (Join-Path $logDir 'marketing.err.log') `
         -PassThru -WindowStyle Hidden
 
+    $learning = Start-Process -FilePath $java -ArgumentList @('-jar', $learningJar) `
+        -WorkingDirectory $root `
+        -RedirectStandardOutput (Join-Path $logDir 'learning.out.log') `
+        -RedirectStandardError (Join-Path $logDir 'learning.err.log') `
+        -PassThru -WindowStyle Hidden
+
     $student = $null
     $admin = $null
     if (-not $SkipFrontend) {
@@ -80,11 +87,13 @@ try {
 
     $userPort = if ($env:USER_PORT) { [int]$env:USER_PORT } else { 18081 }
     $marketingPort = if ($env:MARKETING_PORT) { [int]$env:MARKETING_PORT } else { 18087 }
+    $learningPort = if ($env:LEARNING_PORT) { [int]$env:LEARNING_PORT } else { 18083 }
     $gatewayPort = if ($env:GATEWAY_PORT) { [int]$env:GATEWAY_PORT } else { 18080 }
     $records = @(
         [pscustomobject]@{ kind = 'gateway'; pid = $gateway.Id; port = $gatewayPort; url = "http://127.0.0.1:$gatewayPort/actuator/health" },
         [pscustomobject]@{ kind = 'course'; pid = $course.Id; port = [int]$env:COURSE_PORT; url = "http://127.0.0.1:$($env:COURSE_PORT)/actuator/health" },
         [pscustomobject]@{ kind = 'user'; pid = $user.Id; port = $userPort; url = "http://127.0.0.1:$userPort/actuator/health" },
+        [pscustomobject]@{ kind = 'learning'; pid = $learning.Id; port = $learningPort; url = "http://127.0.0.1:$learningPort/actuator/health" },
         [pscustomobject]@{ kind = 'marketing'; pid = $marketing.Id; port = $marketingPort; url = "http://127.0.0.1:$marketingPort/actuator/health" }
     )
     if (-not $SkipFrontend) {
@@ -113,6 +122,7 @@ try {
     Write-Ok "Gateway        : http://127.0.0.1:$gatewayPort/actuator/health"
     Write-Ok "Course service : http://127.0.0.1:$($env:COURSE_PORT)/actuator/health"
     Write-Ok "User service   : http://127.0.0.1:$userPort/actuator/health"
+    Write-Ok "Learning       : http://127.0.0.1:$learningPort/actuator/health"
     Write-Ok "Marketing      : http://127.0.0.1:$marketingPort/actuator/health"
     if (-not $SkipFrontend) {
         Write-Ok 'Student app    : http://localhost:15173/'

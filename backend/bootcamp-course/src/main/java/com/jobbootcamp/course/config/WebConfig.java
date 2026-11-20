@@ -9,11 +9,14 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final AdminPermissionInterceptor adminPermissionInterceptor;
     private final TeacherScopeInterceptor teacherScopeInterceptor;
+    private final StudentAuthInterceptor studentAuthInterceptor;
 
     public WebConfig(AdminPermissionInterceptor adminPermissionInterceptor,
-                     TeacherScopeInterceptor teacherScopeInterceptor) {
+                     TeacherScopeInterceptor teacherScopeInterceptor,
+                     StudentAuthInterceptor studentAuthInterceptor) {
         this.adminPermissionInterceptor = adminPermissionInterceptor;
         this.teacherScopeInterceptor = teacherScopeInterceptor;
+        this.studentAuthInterceptor = studentAuthInterceptor;
     }
 
     @Override
@@ -22,5 +25,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/v1/admin/**");
         registry.addInterceptor(teacherScopeInterceptor)
                 .addPathPatterns("/api/v1/teacher/**");
+        registry.addInterceptor(studentAuthInterceptor)
+                .addPathPatterns("/api/v1/courses/*/claim", "/api/v1/claims/**");
     }
 }

@@ -26,6 +26,7 @@ foreach ($record in $records) {
         'gateway' { 'bootcamp-gateway' }
         'course' { 'bootcamp-course' }
         'user' { 'bootcamp-user' }
+        'learning' { 'bootcamp-learning' }
         'marketing' { 'bootcamp-marketing' }
         'student' { 'dev:student' }
         'admin' { 'dev:admin' }

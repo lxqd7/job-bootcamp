@@ -23,6 +23,7 @@
         <module>bootcamp-contracts</module>
         <module>bootcamp-course</module>
         <module>bootcamp-user</module>
+        <module>bootcamp-learning</module>
         <module>bootcamp-marketing</module>
         <module>bootcamp-gateway</module>
     </modules>
