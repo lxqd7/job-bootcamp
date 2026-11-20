@@ -6,9 +6,13 @@ import type {
   CategoryNode,
   CourseDetail,
   CourseSummary,
+  LearningCourse,
+  MyCourseItem,
   PageResponse,
+  PlayAuthorization,
   PointsLedgerItem,
   PointsSummary,
+  ProgressResult,
   RouteDetail,
   RouteSummary,
   SignResult,
@@ -115,6 +119,49 @@ export async function loadBoard(month: string, page = 1, pageSize = 20): Promise
   })
   if (data.code !== 'OK') {
     throw new Error(data.message || '月榜接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadMyCourses(page = 1, pageSize = 100): Promise<PageResponse<MyCourseItem>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<MyCourseItem>>>('/api/v1/me/courses', {
+    params: { page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '我的课程接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadLearningCourse(courseId: string): Promise<LearningCourse> {
+  const { data } = await http.get<ApiEnvelope<LearningCourse>>(`/api/v1/learning/courses/${courseId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '学习课程接口返回异常')
+  }
+  return data.data
+}
+
+export async function authorizeLesson(lessonId: string): Promise<PlayAuthorization> {
+  const { data } = await http.post<ApiEnvelope<PlayAuthorization>>(
+    `/api/v1/lessons/${lessonId}/play-authorizations`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '播放授权失败')
+  }
+  return data.data
+}
+
+export async function reportProgress(
+  lessonId: string,
+  positionMs: number,
+  playSessionId: string
+): Promise<ProgressResult> {
+  const { data } = await http.put<ApiEnvelope<ProgressResult>>(
+    `/api/v1/learning/lessons/${lessonId}/progress`,
+    { positionMs, playSessionId }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '进度上报失败')
   }
   return data.data
 }

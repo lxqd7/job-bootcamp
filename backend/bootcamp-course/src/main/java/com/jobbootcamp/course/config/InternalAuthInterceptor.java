@@ -26,7 +26,9 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         String operation = path.contains("/play-sessions/issue")
                 ? "play-sessions:issue"
-                : path.contains("/play-sessions/check") ? "play-sessions:check" : "lessons:metadata";
+                : path.contains("/play-sessions/check")
+                ? "play-sessions:check"
+                : path.contains("/courses/catalog") ? "courses:catalog" : "lessons:metadata";
         try {
             InternalTokenCodec.verify(secret, request.getHeader(SERVICE_TOKEN_HEADER),
                     "bootcamp-course", operation);

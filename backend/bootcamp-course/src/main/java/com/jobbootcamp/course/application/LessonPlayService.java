@@ -3,13 +3,16 @@ package com.jobbootcamp.course.application;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
+import com.jobbootcamp.contracts.internal.CourseCatalogResponse;
 import com.jobbootcamp.contracts.internal.LessonMetadataResponse;
 import com.jobbootcamp.contracts.internal.PlayAuthorizationResponse;
 import com.jobbootcamp.contracts.internal.PlaySessionCheckResponse;
+import com.jobbootcamp.course.domain.Chapter;
 import com.jobbootcamp.course.domain.Course;
 import com.jobbootcamp.course.domain.Lesson;
 import com.jobbootcamp.course.domain.MediaAsset;
 import com.jobbootcamp.course.domain.PlaySession;
+import com.jobbootcamp.course.infrastructure.ChapterMapper;
 import com.jobbootcamp.course.infrastructure.CourseMapper;
 import com.jobbootcamp.course.infrastructure.LessonMapper;
 import com.jobbootcamp.course.infrastructure.MediaAssetMapper;
@@ -19,23 +22,29 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class LessonPlayService {
 
     private final LessonMapper lessonMapper;
+    private final ChapterMapper chapterMapper;
     private final CourseMapper courseMapper;
     private final MediaAssetMapper mediaMapper;
     private final PlaySessionMapper playSessionMapper;
     private final MediaService mediaService;
 
     public LessonPlayService(LessonMapper lessonMapper,
+                             ChapterMapper chapterMapper,
                              CourseMapper courseMapper,
                              MediaAssetMapper mediaMapper,
                              PlaySessionMapper playSessionMapper,
                              MediaService mediaService) {
         this.lessonMapper = lessonMapper;
+        this.chapterMapper = chapterMapper;
         this.courseMapper = courseMapper;
         this.mediaMapper = mediaMapper;
         this.playSessionMapper = playSessionMapper;
@@ -59,6 +68,49 @@ public class LessonPlayService {
                 course.getCatalogVersion(), totalCount,
                 Boolean.TRUE.equals(lesson.getDeleted()) ? "DELETED" : course.getStatus(), lesson.getTitle(),
                 activeLessonIds);
+    }
+
+    public CourseCatalogResponse catalog(Long courseId) {
+        Course course = courseMapper.selectById(courseId);
+        if (course == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "课程不存在");
+        }
+        List<Chapter> chapters = chapterMapper.selectList(Wrappers.<Chapter>lambdaQuery()
+                .eq(Chapter::getCourseId, courseId)
+                .eq(Chapter::getDeleted, false)
+                .orderByAsc(Chapter::getSort)
+                .orderByAsc(Chapter::getId));
+        List<Lesson> lessons = lessonMapper.selectList(Wrappers.<Lesson>lambdaQuery()
+                .eq(Lesson::getCourseId, courseId)
+                .eq(Lesson::getDeleted, false)
+                .orderByAsc(Lesson::getSort)
+                .orderByAsc(Lesson::getId));
+        List<Long> mediaIds = lessons.stream().map(Lesson::getMediaId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, MediaAsset> mediaById = new LinkedHashMap<>();
+        if (!mediaIds.isEmpty()) {
+            mediaMapper.selectBatchIds(mediaIds).forEach(media -> mediaById.put(media.getId(), media));
+        }
+        Map<Long, List<Lesson>> lessonsByChapter = new LinkedHashMap<>();
+        for (Lesson lesson : lessons) {
+            lessonsByChapter.computeIfAbsent(lesson.getChapterId(), ignored -> new ArrayList<>()).add(lesson);
+        }
+        List<CourseCatalogResponse.CatalogChapter> catalogChapters = chapters.stream()
+                .map(chapter -> new CourseCatalogResponse.CatalogChapter(chapter.getId(), chapter.getTitle(),
+                        chapter.getSort() == null ? 0 : chapter.getSort(),
+                        lessonsByChapter.getOrDefault(chapter.getId(), List.of()).stream()
+                                .map(lesson -> new CourseCatalogResponse.CatalogLesson(lesson.getId(),
+                                        lesson.getChapterId(), lesson.getTitle(),
+                                        lesson.getSort() == null ? 0 : lesson.getSort(), lesson.getMediaId(),
+                                        duration(mediaById.get(lesson.getMediaId()))))
+                                .toList()))
+                .toList();
+        return new CourseCatalogResponse(course.getId(), course.getTitle(), course.getDescription(),
+                course.getCatalogVersion(), catalogChapters);
+    }
+
+    private Long duration(MediaAsset media) {
+        return media == null ? null : media.getDurationMs();
     }
 
     public PlayAuthorizationResponse issue(Long userId, Long authSessionId, Long lessonId) {

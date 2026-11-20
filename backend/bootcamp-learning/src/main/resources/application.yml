@@ -34,6 +34,7 @@ app:
     metadata-url: ${COURSE_METADATA_URL:http://127.0.0.1:18082/int/v1/lessons/metadata}
     play-issue-url: ${COURSE_PLAY_ISSUE_URL:http://127.0.0.1:18082/int/v1/play-sessions/issue}
     play-check-url: ${COURSE_PLAY_CHECK_URL:http://127.0.0.1:18082/int/v1/play-sessions/check}
+    catalog-url: ${COURSE_CATALOG_URL:http://127.0.0.1:18082/int/v1/courses/catalog}
   outbox:
     transport: ${OUTBOX_TRANSPORT:none}
     exchange: ${RABBIT_EXCHANGE:bc.domain.v1}

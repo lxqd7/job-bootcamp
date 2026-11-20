@@ -14,6 +14,10 @@ export default defineConfig({
       '/actuator': {
         target: 'http://127.0.0.1:18082',
         changeOrigin: true
+      },
+      '/media': {
+        target: 'http://127.0.0.1:18082',
+        changeOrigin: true
       }
     }
   }

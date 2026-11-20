@@ -1,5 +1,7 @@
 package com.jobbootcamp.course.controller;
 
+import com.jobbootcamp.contracts.internal.CourseCatalogRequest;
+import com.jobbootcamp.contracts.internal.CourseCatalogResponse;
 import com.jobbootcamp.contracts.internal.LessonMetadataRequest;
 import com.jobbootcamp.contracts.internal.LessonMetadataResponse;
 import com.jobbootcamp.contracts.internal.PlayAuthorizationResponse;
@@ -25,6 +27,11 @@ public class InternalLessonController {
     @PostMapping("/lessons/metadata")
     public LessonMetadataResponse metadata(@RequestBody LessonMetadataRequest request) {
         return lessonPlayService.metadata(request.lessonId());
+    }
+
+    @PostMapping("/courses/catalog")
+    public CourseCatalogResponse catalog(@RequestBody CourseCatalogRequest request) {
+        return lessonPlayService.catalog(request.courseId());
     }
 
     @PostMapping("/play-sessions/issue")

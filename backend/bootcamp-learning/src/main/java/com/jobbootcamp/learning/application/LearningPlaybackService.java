@@ -153,7 +153,7 @@ public class LearningPlaybackService {
                     .in(LessonProgress::getLessonId, metadata.activeLessonIds()));
         }
         long totalCount = metadata.totalCount() == null ? 0 : metadata.totalCount();
-        return new ProgressResponse(nowCompleted, completedAt, completedCount, totalCount);
+        return new ProgressResponse(nowCompleted, newlyCompleted, completedAt, completedCount, totalCount);
     }
 
     private void writeCompletion(long userId, LessonMetadataResponse metadata, long sequence, LocalDateTime now) {

@@ -4,11 +4,14 @@ import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.common.web.ApiResponse;
 import com.jobbootcamp.contracts.internal.PlayAuthorizationResponse;
+import com.jobbootcamp.learning.application.LearningCourseService;
 import com.jobbootcamp.learning.application.LearningPlaybackService;
 import com.jobbootcamp.learning.config.StudentAuthInterceptor;
 import com.jobbootcamp.learning.domain.dto.ProgressRequest;
 import com.jobbootcamp.learning.domain.dto.ProgressResponse;
+import com.jobbootcamp.learning.domain.dto.LearningCourseResponse;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -22,9 +25,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class LearningPlaybackController {
 
     private final LearningPlaybackService playbackService;
+    private final LearningCourseService courseService;
 
-    public LearningPlaybackController(LearningPlaybackService playbackService) {
+    public LearningPlaybackController(LearningPlaybackService playbackService,
+                                      LearningCourseService courseService) {
         this.playbackService = playbackService;
+        this.courseService = courseService;
+    }
+
+    @GetMapping("/learning/courses/{id}")
+    public ApiResponse<LearningCourseResponse> course(
+            @PathVariable("id") Long courseId,
+            @RequestAttribute(StudentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(StudentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(courseService.course(userId, courseId));
     }
 
     @PostMapping("/lessons/{id}/play-authorizations")

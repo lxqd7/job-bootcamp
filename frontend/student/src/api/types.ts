@@ -178,3 +178,59 @@ export interface BoardResponse {
   pageSize: number
   myRank: number | null
 }
+
+export interface MyCourseItem {
+  courseId: string
+  sourceId: string
+  sourceType: string
+  grantedAt: string
+}
+
+export interface PlayAuthorization {
+  provider: string
+  playSessionId: string
+  expiresAt: string
+  appId: string | null
+  fileId: string | null
+  psign: string | null
+  demoUrl: string | null
+  durationMs: number
+  courseId: string
+}
+
+export interface LearningLesson {
+  id: string
+  title: string
+  sort: number
+  mediaId: string | null
+  durationMs: number | null
+  positionMs: number
+  maxPositionMs: number
+  completed: boolean
+  completedAt: string | null
+}
+
+export interface LearningChapter {
+  id: string
+  title: string
+  sort: number
+  lessons: LearningLesson[]
+}
+
+export interface LearningCourse {
+  courseId: string
+  title: string
+  description: string
+  catalogVersion: number
+  totalCount: number
+  completedCount: number
+  chapters: LearningChapter[]
+}
+
+export interface ProgressResult {
+  completed: boolean
+  firstCompletion: boolean
+  completedAt: string | null
+  courseCompletedCount: number
+  totalCount: number
+}

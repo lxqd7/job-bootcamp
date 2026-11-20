@@ -2,6 +2,8 @@ package com.jobbootcamp.learning.application;
 
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
+import com.jobbootcamp.contracts.internal.CourseCatalogRequest;
+import com.jobbootcamp.contracts.internal.CourseCatalogResponse;
 import com.jobbootcamp.contracts.internal.InternalTokenCodec;
 import com.jobbootcamp.contracts.internal.LessonMetadataRequest;
 import com.jobbootcamp.contracts.internal.LessonMetadataResponse;
@@ -25,16 +27,24 @@ public class CourseClient {
     private final String metadataUrl;
     private final String issueUrl;
     private final String checkUrl;
+    private final String catalogUrl;
     private final String internalSecret;
 
     public CourseClient(@Value("${app.course.metadata-url}") String metadataUrl,
                         @Value("${app.course.play-issue-url}") String issueUrl,
                         @Value("${app.course.play-check-url}") String checkUrl,
+                        @Value("${app.course.catalog-url}") String catalogUrl,
                         @Value("${app.internal.secret}") String internalSecret) {
         this.metadataUrl = metadataUrl;
         this.issueUrl = issueUrl;
         this.checkUrl = checkUrl;
+        this.catalogUrl = catalogUrl;
         this.internalSecret = internalSecret;
+    }
+
+    public CourseCatalogResponse catalog(Long courseId) {
+        return post(catalogUrl, "courses:catalog", new CourseCatalogRequest(courseId),
+                CourseCatalogResponse.class);
     }
 
     public LessonMetadataResponse metadata(Long lessonId) {
