@@ -16,6 +16,7 @@ public class PlaySession {
     private Long courseId;
     private Long lessonId;
     private Long mediaId;
+    private Long durationMs;
     private Long catalogVersion;
     private LocalDateTime issuedAt;
     private LocalDateTime expiresAt;
@@ -33,6 +34,8 @@ public class PlaySession {
     public void setLessonId(Long lessonId) { this.lessonId = lessonId; }
     public Long getMediaId() { return mediaId; }
     public void setMediaId(Long mediaId) { this.mediaId = mediaId; }
+    public Long getDurationMs() { return durationMs; }
+    public void setDurationMs(Long durationMs) { this.durationMs = durationMs; }
     public Long getCatalogVersion() { return catalogVersion; }
     public void setCatalogVersion(Long catalogVersion) { this.catalogVersion = catalogVersion; }
     public LocalDateTime getIssuedAt() { return issuedAt; }

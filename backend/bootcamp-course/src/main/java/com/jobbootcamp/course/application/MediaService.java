@@ -316,6 +316,7 @@ public class MediaService {
         session.setCourseId(0L);
         session.setLessonId(0L);
         session.setMediaId(asset.getId());
+        session.setDurationMs(asset.getDurationMs());
         session.setCatalogVersion(0L);
         session.setIssuedAt(LocalDateTime.now(ZoneOffset.UTC));
         session.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));
@@ -340,6 +341,7 @@ public class MediaService {
         session.setCourseId(courseId);
         session.setLessonId(lessonId);
         session.setMediaId(asset.getId());
+        session.setDurationMs(asset.getDurationMs());
         session.setCatalogVersion(catalogVersion == null ? 0L : catalogVersion);
         session.setIssuedAt(LocalDateTime.now(ZoneOffset.UTC));
         session.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));

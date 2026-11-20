@@ -77,19 +77,28 @@ public class LearningPlaybackService {
         if (!session.allowed() || !metadata.courseId().equals(session.courseId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "播放会话无效或已过期");
         }
+        if (!metadata.mediaId().equals(session.mediaId())
+                || (metadata.catalogVersion() != null
+                && session.catalogVersion() != null
+                && !metadata.catalogVersion().equals(session.catalogVersion()))) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "视频已更新，请重新获取播放授权");
+        }
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         rowTemplate.executeWithoutResult(status -> guardMapper.insertIfAbsent(userId, now));
-        return transactionTemplate.execute(status -> updateInTransaction(userId, metadata, request, now));
+        return transactionTemplate.execute(status -> updateInTransaction(userId, metadata, session, request, now));
     }
 
     private ProgressResponse updateInTransaction(long userId, LessonMetadataResponse metadata,
+                                                  PlaySessionCheckResponse session,
                                                   ProgressRequest request, LocalDateTime now) {
         UserGuard guard = guardMapper.selectForUpdate(userId);
         AccessCheckResponse access = entitlementService.checkAccess(userId, metadata.courseId());
         if (!access.allowed()) {
             throw new BusinessException(ErrorCode.NO_COURSE_ACCESS, "没有该课程的有效学习权益");
         }
-        long duration = metadata.durationMs() == null ? 0 : metadata.durationMs();
+        long duration = session.durationMs() != null
+                ? session.durationMs()
+                : metadata.durationMs() == null ? 0 : metadata.durationMs();
         if (duration <= 0) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "服务端未取得有效视频时长");
         }
@@ -135,10 +144,14 @@ public class LearningPlaybackService {
             progressMapper.updateById(progress);
         }
 
-        long completedCount = progressMapper.selectCount(Wrappers.<LessonProgress>lambdaQuery()
-                .eq(LessonProgress::getUserId, userId)
-                .eq(LessonProgress::getCourseId, metadata.courseId())
-                .eq(LessonProgress::getCompleted, true));
+        long completedCount = 0;
+        if (metadata.activeLessonIds() != null && !metadata.activeLessonIds().isEmpty()) {
+            completedCount = progressMapper.selectCount(Wrappers.<LessonProgress>lambdaQuery()
+                    .eq(LessonProgress::getUserId, userId)
+                    .eq(LessonProgress::getCourseId, metadata.courseId())
+                    .eq(LessonProgress::getCompleted, true)
+                    .in(LessonProgress::getLessonId, metadata.activeLessonIds()));
+        }
         long totalCount = metadata.totalCount() == null ? 0 : metadata.totalCount();
         return new ProgressResponse(nowCompleted, completedAt, completedCount, totalCount);
     }

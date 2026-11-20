@@ -6,6 +6,7 @@ public record PlaySessionCheckResponse(
         Long lessonId,
         Long mediaId,
         Long durationMs,
+        Long catalogVersion,
         String mode
 ) {
 }

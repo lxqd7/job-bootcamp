@@ -35,31 +35,44 @@ public class LessonCompletionService {
         if (sequence <= cursor) {
             return;
         }
-        List<CompletionEventItem> events = new ArrayList<>();
-        while (cursor + 1 < sequence) {
-            List<CompletionEventItem> batch = completionClient.fetch(userId, cursor, 100);
-            if (batch.isEmpty()) {
-                break;
+        if (sequence > cursor + 1) {
+            List<CompletionEventItem> backfill = completionClient.fetch(userId, cursor, 100);
+            cursor = applyContiguous(userId, lessonId, cursor, backfill);
+            if (cursor + 1 < sequence) {
+                throw new IllegalStateException("completion event gap not filled: cursor=" + cursor
+                        + " incoming=" + sequence);
             }
-            events.addAll(batch);
-            cursor = batch.get(batch.size() - 1).completionEventSequence();
         }
-        events.add(new CompletionEventItem(String.valueOf(userId), null, String.valueOf(lessonId),
-                sequence, occurredAt));
-        events.sort(Comparator.comparingLong(CompletionEventItem::completionEventSequence));
+        if (cursor < sequence) {
+            applyOne(userId, lessonId, sequence, occurredAt);
+        }
+    }
 
-        long applied = currentCursor(userId);
-        for (CompletionEventItem event : events) {
-            if (event.completionEventSequence() <= applied) {
+    private long applyContiguous(long userId, long fallbackLessonId, long cursor,
+                                 List<CompletionEventItem> events) {
+        List<CompletionEventItem> ordered = new ArrayList<>(events);
+        ordered.sort(Comparator.comparingLong(CompletionEventItem::completionEventSequence));
+        long next = cursor + 1;
+        for (CompletionEventItem event : ordered) {
+            if (event.completionEventSequence() < next) {
                 continue;
             }
-            long eventLessonId = event.lessonId() == null ? lessonId : Long.parseLong(event.lessonId());
-            pointsService.awardVideo(userId, eventLessonId, 10, event.occurredAt());
-            cursorMapper.upsert(userId, event.completionEventSequence(), LocalDateTime.now(ZoneOffset.UTC));
-            applied = event.completionEventSequence();
-            log.info("lesson completion applied user={} lesson={} sequence={}", userId, eventLessonId,
-                    event.completionEventSequence());
+            if (event.completionEventSequence() > next) {
+                break;
+            }
+            long lessonId = event.lessonId() == null
+                    ? fallbackLessonId : Long.parseLong(event.lessonId());
+            applyOne(userId, lessonId, event.completionEventSequence(), event.occurredAt());
+            cursor = event.completionEventSequence();
+            next++;
         }
+        return cursor;
+    }
+
+    private void applyOne(long userId, long lessonId, long sequence, Instant occurredAt) {
+        pointsService.awardVideo(userId, lessonId, 10, occurredAt);
+        cursorMapper.upsert(userId, sequence, LocalDateTime.now(ZoneOffset.UTC));
+        log.info("lesson completion applied user={} lesson={} sequence={}", userId, lessonId, sequence);
     }
 
     private long currentCursor(long userId) {

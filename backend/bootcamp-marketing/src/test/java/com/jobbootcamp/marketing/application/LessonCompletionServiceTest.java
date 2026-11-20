@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -38,6 +39,23 @@ class LessonCompletionServiceTest {
         verify(points).awardVideo(1L, 102L, 10, occurredAt);
         verify(points).awardVideo(1L, 103L, 10, occurredAt);
         verify(cursor, times(3)).upsert(eq(1L), anyLong(), any());
+    }
+
+    @Test
+    void emptyBackfillDoesNotAdvanceCursorOrAwardOutOfOrderEvent() {
+        LearningCompletionClient client = mock(LearningCompletionClient.class);
+        LearningEventCursorMapper cursor = mock(LearningEventCursorMapper.class);
+        PointsService points = mock(PointsService.class);
+        LessonCompletionService service = new LessonCompletionService(client, cursor, points);
+
+        Instant occurredAt = Instant.parse("2026-11-20T00:00:00Z");
+        when(cursor.selectLastSequence(1L)).thenReturn(0L);
+        when(client.fetch(1L, 0L, 100)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.handle(1L, 103L, 3L, occurredAt))
+                .isInstanceOf(IllegalStateException.class);
+        verify(points, never()).awardVideo(anyLong(), anyLong(), anyInt(), any());
+        verify(cursor, never()).upsert(anyLong(), anyLong(), any());
     }
 
     @Test

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 @Service
 public class LessonPlayService {
@@ -48,13 +49,16 @@ public class LessonPlayService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "课程不存在");
         }
         MediaAsset media = lesson.getMediaId() == null ? null : mediaMapper.selectById(lesson.getMediaId());
-        long totalCount = lessonMapper.selectCount(Wrappers.<Lesson>lambdaQuery()
-                .eq(Lesson::getCourseId, course.getId())
-                .eq(Lesson::getDeleted, false));
+        List<Long> activeLessonIds = lessonMapper.selectList(Wrappers.<Lesson>lambdaQuery()
+                        .eq(Lesson::getCourseId, course.getId())
+                        .eq(Lesson::getDeleted, false))
+                .stream().map(Lesson::getId).toList();
+        long totalCount = activeLessonIds.size();
         return new LessonMetadataResponse(course.getId(), lesson.getId(), lesson.getMediaId(),
                 media == null || media.getDurationMs() == null ? 0 : media.getDurationMs(),
                 course.getCatalogVersion(), totalCount,
-                Boolean.TRUE.equals(lesson.getDeleted()) ? "DELETED" : course.getStatus(), lesson.getTitle());
+                Boolean.TRUE.equals(lesson.getDeleted()) ? "DELETED" : course.getStatus(), lesson.getTitle(),
+                activeLessonIds);
     }
 
     public PlayAuthorizationResponse issue(Long userId, Long authSessionId, Long lessonId) {
@@ -79,11 +83,14 @@ public class LessonPlayService {
                 || !session.getLessonId().equals(lessonId)
                 || !"LEARN".equals(session.getMode())
                 || session.getExpiresAt().isBefore(LocalDateTime.now(ZoneOffset.UTC))) {
-            return new PlaySessionCheckResponse(false, null, lessonId, null, null, null);
+            return new PlaySessionCheckResponse(false, null, lessonId, null, null, null, null);
         }
         MediaAsset media = mediaMapper.selectById(session.getMediaId());
+        Long duration = session.getDurationMs() != null
+                ? session.getDurationMs()
+                : media == null ? null : media.getDurationMs();
         return new PlaySessionCheckResponse(true, session.getCourseId(), session.getLessonId(),
-                session.getMediaId(), media == null ? null : media.getDurationMs(), session.getMode());
+                session.getMediaId(), duration, session.getCatalogVersion(), session.getMode());
     }
 
     private Lesson requireLesson(Long lessonId) {
