@@ -3,15 +3,15 @@ package com.jobbootcamp.course.application;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
-import com.jobbootcamp.contracts.internal.FreeClaimCommand;
-import com.jobbootcamp.contracts.internal.FreeClaimResult;
 import com.jobbootcamp.course.domain.Course;
 import com.jobbootcamp.course.domain.CourseVersion;
 import com.jobbootcamp.course.domain.FreeClaimTicket;
+import com.jobbootcamp.course.domain.OutboxEvent;
 import com.jobbootcamp.course.domain.dto.ClaimView;
 import com.jobbootcamp.course.infrastructure.CourseMapper;
 import com.jobbootcamp.course.infrastructure.CourseVersionMapper;
 import com.jobbootcamp.course.infrastructure.FreeClaimTicketMapper;
+import com.jobbootcamp.course.infrastructure.OutboxEventMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -29,28 +28,29 @@ public class FreeClaimService {
     private static final Logger log = LoggerFactory.getLogger(FreeClaimService.class);
     private static final String PROCESSING = "PROCESSING";
     private static final String FULFILLED = "FULFILLED";
+    private static final String CLAIM_EVENT = "course.free-claim-accepted.v1";
 
     private final CourseMapper courseMapper;
     private final CourseVersionMapper versionMapper;
     private final FreeClaimTicketMapper ticketMapper;
-    private final LearningClaimClient learningClient;
+    private final OutboxEventMapper outboxEventMapper;
     private final TransactionTemplate transactionTemplate;
 
     public FreeClaimService(CourseMapper courseMapper,
                             CourseVersionMapper versionMapper,
                             FreeClaimTicketMapper ticketMapper,
-                            LearningClaimClient learningClient,
+                            OutboxEventMapper outboxEventMapper,
                             PlatformTransactionManager transactionManager) {
         this.courseMapper = courseMapper;
         this.versionMapper = versionMapper;
         this.ticketMapper = ticketMapper;
-        this.learningClient = learningClient;
+        this.outboxEventMapper = outboxEventMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public ClaimView claim(long userId, long courseId) {
         FreeClaimTicket ticket = transactionTemplate.execute(status -> claimInTransaction(userId, courseId));
-        return fulfill(ticket);
+        return toView(ticket);
     }
 
     private FreeClaimTicket claimInTransaction(long userId, long courseId) {
@@ -86,7 +86,26 @@ public class FreeClaimService {
         ticket.setUpdatedAt(now);
         ticket.setRevision(0L);
         ticketMapper.insert(ticket);
+        writeClaimEvent(ticket, now);
         return ticket;
+    }
+
+    private void writeClaimEvent(FreeClaimTicket ticket, LocalDateTime now) {
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(UUID.randomUUID().toString());
+        event.setType(CLAIM_EVENT);
+        event.setAggregateId(ticket.getClaimId());
+        event.setAggregateVersion(1L);
+        event.setOccurredAt(now);
+        event.setPayload("{\"claimId\":\"" + ticket.getClaimId()
+                + "\",\"userId\":\"" + ticket.getUserId()
+                + "\",\"courseId\":\"" + ticket.getCourseId()
+                + "\",\"courseVersion\":\"" + ticket.getCourseVersion()
+                + "\",\"acceptedAt\":\"" + ticket.getAcceptedAt().toInstant(ZoneOffset.UTC) + "\"}");
+        event.setStatus("NEW");
+        event.setAttempt(0);
+        event.setNextRetryAt(now);
+        outboxEventMapper.insert(event);
     }
 
     public ClaimView getClaim(long userId, String claimId) {
@@ -94,43 +113,21 @@ public class FreeClaimService {
         if (ticket == null || !ticket.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "领取记录不存在");
         }
-        return fulfill(ticket);
+        return toView(ticket);
     }
 
-    public void retryPending() {
-        List<FreeClaimTicket> pending = ticketMapper.selectProcessing(20);
-        for (FreeClaimTicket ticket : pending) {
-            try {
-                fulfill(ticket);
-            } catch (RuntimeException e) {
-                log.warn("free claim retry failed claimId={}: {}", ticket.getClaimId(), e.getMessage());
-            }
+    public void markFulfilled(String claimId, String sourceId) {
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        int updated = ticketMapper.update(null, Wrappers.<FreeClaimTicket>lambdaUpdate()
+                .set(FreeClaimTicket::getStatus, FULFILLED)
+                .set(FreeClaimTicket::getSourceId, Long.valueOf(sourceId))
+                .set(FreeClaimTicket::getUpdatedAt, now)
+                .setSql("revision = revision + 1")
+                .eq(FreeClaimTicket::getClaimId, claimId)
+                .eq(FreeClaimTicket::getStatus, PROCESSING));
+        if (updated == 0) {
+            log.debug("free claim completion already applied claimId={}", claimId);
         }
-    }
-
-    private ClaimView fulfill(FreeClaimTicket ticket) {
-        if (FULFILLED.equals(ticket.getStatus())) {
-            return toView(ticket);
-        }
-        try {
-            FreeClaimResult result = learningClient.grant(new FreeClaimCommand(
-                    ticket.getClaimId(), ticket.getUserId(), ticket.getCourseId(),
-                    ticket.getCourseVersion(), ticket.getAcceptedAt().toInstant(ZoneOffset.UTC)));
-            LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-            int updated = ticketMapper.update(null, Wrappers.<FreeClaimTicket>lambdaUpdate()
-                    .set(FreeClaimTicket::getStatus, FULFILLED)
-                    .set(FreeClaimTicket::getSourceId, Long.valueOf(result.sourceId()))
-                    .set(FreeClaimTicket::getUpdatedAt, now)
-                    .setSql("revision = revision + 1")
-                    .eq(FreeClaimTicket::getClaimId, ticket.getClaimId())
-                    .eq(FreeClaimTicket::getStatus, PROCESSING));
-            if (updated > 0) {
-                ticket = ticketMapper.selectById(ticket.getClaimId());
-            }
-        } catch (RuntimeException e) {
-            log.warn("free claim fulfillment deferred claimId={}: {}", ticket.getClaimId(), e.getMessage());
-        }
-        return toView(ticketMapper.selectById(ticket.getClaimId()));
     }
 
     private ClaimView toView(FreeClaimTicket ticket) {

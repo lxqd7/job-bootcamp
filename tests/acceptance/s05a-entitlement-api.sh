@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Requires RabbitMQ and services started with OUTBOX_TRANSPORT=rabbit OUTBOX_RELAY_ENABLED=true.
 set -euo pipefail
 
 BASE="${BASE:-http://127.0.0.1:18080}"
@@ -97,6 +98,22 @@ course_present() {
   ' "$1" "$2"
 }
 
+wait_claim() {
+  local token="$1" claim_id="$2" out="$3"
+  local status
+  for i in $(seq 1 20); do
+    status=$(curl -s -o "$out" -w '%{http_code}' -H "Authorization: Bearer $token" "$BASE/api/v1/claims/$claim_id")
+    if [ "$status" = "200" ] && [ "$(field data.status < "$out")" = "FULFILLED" ]; then
+      echo "PASS  claim $claim_id becomes FULFILLED after event delivery"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "FAIL  claim $claim_id did not become FULFILLED"
+  cat "$out" 2>/dev/null || true
+  exit 1
+}
+
 echo "== Login and basic access =="
 login student01 STUDENT "$TMP_DIR/student01.json"
 login student02 STUDENT "$TMP_DIR/student02.json"
@@ -121,8 +138,13 @@ CLAIM_BODY="$TMP_DIR/claim-free.json"
 CLAIM_STATUS=$(curl -s -o "$CLAIM_BODY" -w '%{http_code}' -X POST -H "Authorization: Bearer $STUDENT1" "$BASE/api/v1/courses/1/claim")
 expect_status 200 "$CLAIM_STATUS" "claim online free course" "$CLAIM_BODY"
 CLAIM_ID=$(field data.claimId < "$CLAIM_BODY")
-SOURCE_ID=$(field data.sourceId < "$CLAIM_BODY")
-expect_value "FULFILLED" "$(field data.status < "$CLAIM_BODY")" "free claim is fulfilled synchronously"
+CLAIM_STATUS_BODY="$TMP_DIR/claim-free-status.json"
+curl -s -o "$CLAIM_STATUS_BODY" -H "Authorization: Bearer $STUDENT1" "$BASE/api/v1/claims/$CLAIM_ID"
+if [ "$(field data.status < "$CLAIM_STATUS_BODY")" = "PROCESSING" ]; then
+  wait_claim "$STUDENT1" "$CLAIM_ID" "$CLAIM_STATUS_BODY"
+fi
+SOURCE_ID=$(field data.sourceId < "$CLAIM_STATUS_BODY")
+expect_value "FULFILLED" "$(field data.status < "$CLAIM_STATUS_BODY")" "free claim is fulfilled by event chain"
 if [ -z "$SOURCE_ID" ]; then echo "FAIL  sourceId missing"; exit 1; fi
 
 CLAIM_AGAIN="$TMP_DIR/claim-again.json"
@@ -167,8 +189,14 @@ KEEP_REVISION="$PUBLISH_REVISION"
 KEEP_CLAIM="$TMP_DIR/keep-claim.json"
 KEEP_CLAIM_STATUS=$(curl -s -o "$KEEP_CLAIM" -w '%{http_code}' -X POST -H "Authorization: Bearer $STUDENT3" "$BASE/api/v1/courses/$KEEP_COURSE/claim")
 expect_status 200 "$KEEP_CLAIM_STATUS" "claim newly published free course" "$KEEP_CLAIM"
-expect_value "FULFILLED" "$(field data.status < "$KEEP_CLAIM")" "new free course is granted"
-KEEP_SOURCE=$(field data.sourceId < "$KEEP_CLAIM")
+KEEP_CLAIM_ID=$(field data.claimId < "$KEEP_CLAIM")
+KEEP_STATUS_FILE="$TMP_DIR/keep-claim-status.json"
+curl -s -o "$KEEP_STATUS_FILE" -H "Authorization: Bearer $STUDENT3" "$BASE/api/v1/claims/$KEEP_CLAIM_ID"
+if [ "$(field data.status < "$KEEP_STATUS_FILE")" = "PROCESSING" ]; then
+  wait_claim "$STUDENT3" "$KEEP_CLAIM_ID" "$KEEP_STATUS_FILE"
+fi
+KEEP_SOURCE=$(field data.sourceId < "$KEEP_STATUS_FILE")
+expect_value "yes" "$([ -n "$KEEP_SOURCE" ] && echo yes || echo no)" "new free course is granted by event chain"
 
 update_paid "$KEEP_COURSE" "$KEEP_REVISION" "$TMP_DIR/keep-paid.json"
 KEEP_ME="$TMP_DIR/keep-me.json"
@@ -199,12 +227,15 @@ wait $UPDATE_PID
 RACE_CLAIM_STATUS=$(cat "$TMP_DIR/race-claim.status")
 RACE_UPDATE_STATUS=$(cat "$TMP_DIR/race-update.status")
 echo "claim status=$RACE_CLAIM_STATUS update status=$RACE_UPDATE_STATUS"
+if [ "$RACE_CLAIM_STATUS" = "200" ]; then
+  RACE_CLAIM_ID=$(field data.claimId < "$TMP_DIR/race-claim.json")
+  wait_claim "$STUDENT1" "$RACE_CLAIM_ID" "$TMP_DIR/race-claim-status.json"
+fi
 RACE_ME="$TMP_DIR/race-me.json"
 me_courses "$STUDENT1" "$RACE_ME"
 RACE_PRESENT=$(course_present "$RACE_ME" "$RACE_COURSE")
 if [ "$RACE_CLAIM_STATUS" = "200" ]; then
   expect_value "yes" "$RACE_PRESENT" "claim accepted before/despite price change has a source"
-  expect_value "FULFILLED" "$(field data.status < "$TMP_DIR/race-claim.json")" "accepted race claim is fulfilled"
 else
   expect_value "no" "$RACE_PRESENT" "rejected race claim leaves no entitlement"
 fi
