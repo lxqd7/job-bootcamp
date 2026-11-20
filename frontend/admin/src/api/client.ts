@@ -1,9 +1,41 @@
 import axios from 'axios'
 import { http } from './http'
+import type { AdminOrderItem, ApiEnvelope, PageResponse } from './types'
 
 export async function loadHealth(): Promise<{ status: string }> {
   const { data } = await http.get<{ status: string }>('/actuator/health')
   return data
+}
+
+export async function loadAdminOrders(
+  state: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<AdminOrderItem>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<AdminOrderItem>>>('/api/v1/admin/orders', {
+    params: { state: state || undefined, page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '订单列表加载失败')
+  }
+  return data.data
+}
+
+export async function runPaymentScenario(
+  paymentRequestId: string,
+  scenario: string,
+  paidAt?: string
+): Promise<Record<string, unknown>> {
+  const payload: Record<string, string> = { scenario }
+  if (paidAt) payload.paidAt = paidAt
+  const { data } = await http.post<ApiEnvelope<Record<string, unknown>>>(
+    `/api/v1/dev/payments/${paymentRequestId}/scenario`,
+    payload
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '模拟场景执行失败')
+  }
+  return data.data
 }
 
 export function describeError(error: unknown): string {

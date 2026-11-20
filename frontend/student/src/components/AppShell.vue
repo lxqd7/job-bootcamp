@@ -13,6 +13,7 @@ const links = computed(() => [
   { to: '/courses', label: '课程' },
   { to: '/routes', label: '路线' },
   { to: '/me/courses', label: '我的课程' },
+  { to: '/orders', label: '订单' },
   { to: '/sign-in', label: '签到' },
   { to: '/me/points', label: '积分' },
   { to: '/boards', label: '月榜' },

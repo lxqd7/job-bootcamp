@@ -200,3 +200,17 @@ export interface MediaAuthorization {
   demoUrl: string | null
   durationMs: number | null
 }
+
+export interface AdminOrderItem {
+  id: string
+  orderNo: string
+  userId: string
+  state: string
+  fulfillmentState: string
+  payableCent: number
+  createdAt: string
+  expiresAt: string
+  paidAt: string | null
+  paymentRequestId: string | null
+  paymentRequestState: string | null
+}

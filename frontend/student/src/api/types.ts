@@ -234,3 +234,80 @@ export interface ProgressResult {
   courseCompletedCount: number
   totalCount: number
 }
+
+export interface TradeQuote {
+  quoteId: string
+  status: string
+  expiresAt: string
+  quoteHash: string
+  product: {
+    type: string
+    id: string
+    title: string
+    version: number
+  }
+  courses: QuoteCourseLine[]
+  couponPlan: unknown[]
+  totalCent: number
+  creditCent: number
+  discountCent: number
+  payableCent: number
+  refundDependencyWarnings: string[]
+}
+
+export interface QuoteCourseLine {
+  courseId: string
+  unitPriceCent: number
+  allocatedCent: number
+  creditCent: number
+  sourceId: string | null
+  sourceGrantId: string | null
+  sourceOrderId: string | null
+  remainingCent: number
+}
+
+export interface OrderItem {
+  courseId: string
+  courseVersion: number
+  unitPriceCent: number
+  allocatedCent: number
+  creditCent: number
+  couponCent: number
+  payableCent: number
+  free: boolean
+  newPaid: boolean
+}
+
+export interface OrderResponse {
+  id: string
+  orderNo: string
+  state: string
+  fulfillmentState: string
+  createdAt: string
+  expiresAt: string
+  paidAt: string | null
+  pricing: {
+    totalCent: number
+    creditCent: number
+    discountCent: number
+    payableCent: number
+  }
+  items: OrderItem[]
+  coupons: unknown[]
+  mode: string
+}
+
+export interface PaymentInitiateResponse {
+  paymentId: string
+  payAction: string
+  mode: string
+  state: string
+  expiresAt: string
+}
+
+export interface ClaimResult {
+  claimId: string
+  courseId: string
+  status: string
+  sourceId: string | null
+}

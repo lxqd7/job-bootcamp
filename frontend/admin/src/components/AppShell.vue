@@ -16,6 +16,7 @@ const links = computed(() => {
       { to: '/admin/routes', label: '路线管理' },
       { to: '/admin/teachers', label: '教师分配' },
       { to: '/admin/media', label: '媒体管理' },
+      { to: '/admin/trades', label: '交易场景' },
       { to: '/admin/users', label: '账号管理' },
       { to: '/me', label: '个人资料' }
     ]

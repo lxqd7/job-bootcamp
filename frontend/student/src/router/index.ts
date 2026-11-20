@@ -14,6 +14,10 @@ import PointsView from '../views/PointsView.vue'
 import BoardView from '../views/BoardView.vue'
 import MyCoursesView from '../views/MyCoursesView.vue'
 import LearningView from '../views/LearningView.vue'
+import CheckoutView from '../views/CheckoutView.vue'
+import OrderListView from '../views/OrderListView.vue'
+import OrderDetailView from '../views/OrderDetailView.vue'
+import PaymentView from '../views/PaymentView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,6 +34,10 @@ const router = createRouter({
     { path: '/boards', name: 'boards', component: BoardView, meta: { roles: ['STUDENT'] } },
     { path: '/me/courses', name: 'my-courses', component: MyCoursesView, meta: { roles: ['STUDENT'] } },
     { path: '/learning/courses/:id', name: 'learning', component: LearningView, meta: { roles: ['STUDENT'] } },
+    { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { roles: ['STUDENT'] } },
+    { path: '/orders', name: 'orders', component: OrderListView, meta: { roles: ['STUDENT'] } },
+    { path: '/orders/:id/pay', name: 'order-pay', component: PaymentView, meta: { roles: ['STUDENT'] } },
+    { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/me', name: 'profile', component: ProfileView, meta: { roles: ['STUDENT'] } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { public: true } }
   ]

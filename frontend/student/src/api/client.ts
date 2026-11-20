@@ -4,11 +4,14 @@ import type {
   ApiEnvelope,
   BoardResponse,
   CategoryNode,
+  ClaimResult,
   CourseDetail,
   CourseSummary,
   LearningCourse,
   MyCourseItem,
+  OrderResponse,
   PageResponse,
+  PaymentInitiateResponse,
   PlayAuthorization,
   PointsLedgerItem,
   PointsSummary,
@@ -16,7 +19,8 @@ import type {
   RouteDetail,
   RouteSummary,
   SignResult,
-  SignStatus
+  SignStatus,
+  TradeQuote
 } from './types'
 
 export interface CategoryResult {
@@ -164,6 +168,109 @@ export async function reportProgress(
     throw new Error(data.message || '进度上报失败')
   }
   return data.data
+}
+
+export async function createQuote(courseId: string): Promise<TradeQuote> {
+  const { data } = await http.post<ApiEnvelope<TradeQuote>>('/api/v1/trade/quotes', {
+    productType: 'COURSE',
+    productId: Number(courseId),
+    couponSelection: { mode: 'NONE', ids: [] }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '报价失败')
+  }
+  return data.data
+}
+
+export async function createOrder(
+  quoteId: string,
+  quoteHash: string,
+  idempotencyKey: string
+): Promise<OrderResponse> {
+  const { data } = await http.post<ApiEnvelope<OrderResponse>>(
+    '/api/v1/orders',
+    { quoteId, quoteHash, selectedCouponIds: [] },
+    { headers: { 'Idempotency-Key': idempotencyKey } }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '创建订单失败')
+  }
+  return data.data
+}
+
+export async function loadOrders(
+  page = 1,
+  pageSize = 20,
+  state?: string
+): Promise<PageResponse<OrderResponse>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<OrderResponse>>>('/api/v1/orders', {
+    params: { page, pageSize, state: state || undefined }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '订单列表加载失败')
+  }
+  return data.data
+}
+
+export async function loadOrder(orderId: string): Promise<OrderResponse> {
+  const { data } = await http.get<ApiEnvelope<OrderResponse>>(`/api/v1/orders/${orderId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '订单详情加载失败')
+  }
+  return data.data
+}
+
+export async function initiatePayment(orderId: string): Promise<PaymentInitiateResponse> {
+  const { data } = await http.post<ApiEnvelope<PaymentInitiateResponse>>(
+    `/api/v1/orders/${orderId}/payment`,
+    { channel: 'MOCK' }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '创建支付单失败')
+  }
+  return data.data
+}
+
+export async function mockPay(orderId: string): Promise<OrderResponse> {
+  const { data } = await http.post<ApiEnvelope<OrderResponse>>(
+    `/api/v1/orders/${orderId}/payment/mock-pay`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '模拟付款失败')
+  }
+  return data.data
+}
+
+export async function cancelOrder(orderId: string): Promise<OrderResponse> {
+  const { data } = await http.post<ApiEnvelope<OrderResponse>>(`/api/v1/orders/${orderId}/cancel`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '取消订单失败')
+  }
+  return data.data
+}
+
+export async function claimCourse(courseId: string): Promise<ClaimResult> {
+  const { data } = await http.post<ApiEnvelope<ClaimResult>>(`/api/v1/courses/${courseId}/claim`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '免费领取失败')
+  }
+  return data.data
+}
+
+export async function loadClaim(claimId: string): Promise<ClaimResult> {
+  const { data } = await http.get<ApiEnvelope<ClaimResult>>(`/api/v1/claims/${claimId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '领取状态加载失败')
+  }
+  return data.data
+}
+
+export function describeTradeError(error: unknown): string {
+  const responseData = (error as { response?: { data?: { message?: string } } }).response?.data
+  if (responseData?.message) {
+    return responseData.message
+  }
+  return describeError(error)
 }
 
 export function describeError(error: unknown): string {

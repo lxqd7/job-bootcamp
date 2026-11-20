@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import AppShell from '../components/AppShell.vue'
-import { describeError, loadCourse, loadCategories } from '../api/client'
+import { claimCourse, describeTradeError, loadClaim, loadCourse, loadCategories } from '../api/client'
 import type { CategoryNode, CourseDetail } from '../api/types'
 
 const route = useRoute()
@@ -10,10 +10,14 @@ const course = ref<CourseDetail | null>(null)
 const categoryName = ref('')
 const loading = ref(true)
 const errorMessage = ref('')
+const claiming = ref(false)
+const claimed = ref(false)
+const claimNotice = ref('')
 
 const lessonCount = computed(() =>
   course.value ? course.value.chapters.reduce((total, chapter) => total + chapter.lessons.length, 0) : 0
 )
+const owned = computed(() => Boolean(course.value?.isOwned || claimed.value))
 
 function formatPrice(value: CourseDetail): string {
   return value.isFree ? '免费' : `¥${(value.priceCent / 100).toFixed(2)}`
@@ -39,11 +43,35 @@ onMounted(async () => {
     const categories = await loadCategories()
     categoryName.value = findName(categories.categories, course.value.categoryId)
   } catch (error) {
-    errorMessage.value = describeError(error)
+    errorMessage.value = describeTradeError(error)
   } finally {
     loading.value = false
   }
 })
+
+async function claimFree(): Promise<void> {
+  if (!course.value || claiming.value) return
+  claiming.value = true
+  errorMessage.value = ''
+  claimNotice.value = ''
+  try {
+    let result = await claimCourse(course.value.id)
+    for (let attempt = 0; result.status === 'PROCESSING' && attempt < 20; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      result = await loadClaim(result.claimId)
+    }
+    if (result.status === 'FULFILLED') {
+      claimed.value = true
+      claimNotice.value = '领取成功，可以进入学习。'
+    } else {
+      claimNotice.value = '领取已受理，学习服务仍在处理中，可稍后到“我的课程”查看。'
+    }
+  } catch (error) {
+    errorMessage.value = describeTradeError(error)
+  } finally {
+    claiming.value = false
+  }
+}
 </script>
 
 <template>
@@ -83,9 +111,24 @@ onMounted(async () => {
 
       <section class="note">
         <h2>购买与学习</h2>
-        <p>
-          当前只展示课程目录。免费领取、购买、播放授权和学习进度会在 S05/S06 接入；没有课程权益时不会绕过媒体授权。
-        </p>
+        <p v-if="claimNotice" class="claim-notice" role="status">{{ claimNotice }}</p>
+        <div v-if="owned" class="purchase-actions">
+          <RouterLink class="btn btn-primary" :to="`/learning/courses/${course.id}`">进入学习</RouterLink>
+          <span class="muted">已拥有有效学习权益。</span>
+        </div>
+        <div v-else-if="course.isFree" class="purchase-actions">
+          <button class="btn btn-primary" type="button" :disabled="claiming" @click="claimFree">
+            {{ claiming ? '领取中…' : '免费领取' }}
+          </button>
+          <span class="muted">免费课程领取后由学习服务建立 FREE 来源。</span>
+        </div>
+        <div v-else-if="course.status === 'ONLINE'" class="purchase-actions">
+          <RouterLink class="btn btn-primary" :to="{ name: 'checkout', query: { courseId: course.id } }">
+            立即购买
+          </RouterLink>
+          <span class="muted">先确认报价，再创建 30 分钟待支付订单；当前阶段不接优惠券。</span>
+        </div>
+        <p v-else class="muted">课程当前未上架，暂不能购买。</p>
       </section>
     </template>
   </AppShell>
@@ -208,5 +251,18 @@ h1 {
   margin: 0;
   color: var(--muted);
   line-height: 1.7;
+}
+
+.purchase-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.claim-notice {
+  margin-bottom: 12px !important;
+  color: var(--pine) !important;
 }
 </style>
