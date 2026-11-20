@@ -130,6 +130,30 @@ public class OrderService {
         return new PageResponse<>(items, result.getTotal(), pageNumber, size);
     }
 
+    public void markGranted(Long orderId, Long userId, Long sourceId, List<GrantAck> grants) {
+        transactionTemplate.executeWithoutResult(status -> {
+            LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+            TradeOrder order = orderMapper.selectForUpdate(orderId);
+            if (order == null || !order.getUserId().equals(userId)) {
+                return;
+            }
+            for (GrantAck grant : grants) {
+                orderCourseMapper.updateGrant(orderId, grant.courseId(), sourceId, grant.grantId());
+            }
+            if (!"PAID".equals(order.getState())) {
+                return;
+            }
+            if (orderCourseMapper.countMissingGrant(orderId) == 0) {
+                orderMapper.updateFulfillment(orderId, "DONE", now);
+            } else {
+                orderMapper.updateFulfillment(orderId, "RUNNING", now);
+            }
+        });
+    }
+
+    public record GrantAck(Long courseId, Long grantId) {
+    }
+
     private OrderResponse createInTransaction(Long userId, String requestKey, String requestHash,
                                               CreateOrderRequest request) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
@@ -189,7 +213,7 @@ public class OrderService {
         order.setProductType(quote.getProductType());
         order.setProductId(quote.getProductId());
         order.setState("CREATING");
-        order.setFulfillmentState("NOT_STARTED");
+        order.setFulfillmentState("PENDING");
         order.setTotalCent(quote.getTotalCent());
         order.setCreditCent(quote.getCreditCent());
         order.setDiscountCent(quote.getDiscountCent());
@@ -264,7 +288,7 @@ public class OrderService {
         return key;
     }
 
-    private OrderResponse toResponse(TradeOrder order) {
+    public OrderResponse toResponse(TradeOrder order) {
         List<OrderCourse> courses = orderCourseMapper.selectList(Wrappers.<OrderCourse>lambdaQuery()
                 .eq(OrderCourse::getOrderId, order.getId())
                 .orderByAsc(OrderCourse::getCourseId));

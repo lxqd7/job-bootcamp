@@ -17,6 +17,10 @@ $env:LEARNING_PORT = '18083'
 $env:TRADE_PORT = '18084'
 $env:MARKETING_PORT = '18087'
 $env:GATEWAY_PORT = '18080'
+
+# 仅本地/测试：显式启用 MOCK 支付与开发场景；生产必须改为 real 且关闭场景接口。
+$env:PAYMENT_MODE = 'mock'
+$env:PAYMENT_MOCK_SCENARIO_ENABLED = 'true'
 $env:REDIS_HOST = '127.0.0.1'
 $env:REDIS_PORT = '6379'
 

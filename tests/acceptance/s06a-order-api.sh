@@ -118,7 +118,7 @@ echo "== Order snapshot and state =="
 STATUS=$(curl -s -o "$TMP_DIR/order.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/orders/$ORDER_ID")
 expect_status 200 "$STATUS" "GET own order" "$TMP_DIR/order.json"
 expect_value "WAIT_PAY" "$(field data.state < "$TMP_DIR/order.json")" "order state"
-expect_value "NOT_STARTED" "$(field data.fulfillmentState < "$TMP_DIR/order.json")" "fulfillment state"
+expect_value "PENDING" "$(field data.fulfillmentState < "$TMP_DIR/order.json")" "fulfillment state"
 expect_value "$TRADE_COURSE_ID" "$(field data.items.0.courseId < "$TMP_DIR/order.json")" "order item course"
 expect_value "990" "$(field data.pricing.payableCent < "$TMP_DIR/order.json")" "order payable"
 STATUS=$(curl -s -o "$TMP_DIR/quote-after.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/trade/quotes/$QUOTE_ID")

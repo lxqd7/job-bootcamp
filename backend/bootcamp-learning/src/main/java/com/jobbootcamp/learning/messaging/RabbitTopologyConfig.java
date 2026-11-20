@@ -19,6 +19,7 @@ public class RabbitTopologyConfig {
     public static final String COMPLETION_QUEUE = "bc.course.learning-free-claim.v1";
     public static final String ROUTE_QUEUE = "bc.learning.course-route-changed.v1";
     public static final String LESSON_QUEUE = "bc.marketing.learning-lesson.v1";
+    public static final String ORDER_PAID_QUEUE = "bc.learning.order-paid.v1";
 
     @Bean
     public TopicExchange domainExchange(@Value("${app.outbox.exchange:bc.domain.v1}") String exchange) {
@@ -46,6 +47,11 @@ public class RabbitTopologyConfig {
     }
 
     @Bean
+    public Queue orderPaidQueue() {
+        return new Queue(ORDER_PAID_QUEUE, true, false, false);
+    }
+
+    @Bean
     public Binding freeClaimBinding(Queue freeClaimQueue, TopicExchange domainExchange) {
         return BindingBuilder.bind(freeClaimQueue).to(domainExchange).with("course.free-claim-accepted.v1");
     }
@@ -64,5 +70,10 @@ public class RabbitTopologyConfig {
     @Bean
     public Binding lessonCompletedBinding(Queue lessonCompletedQueue, TopicExchange domainExchange) {
         return BindingBuilder.bind(lessonCompletedQueue).to(domainExchange).with("learning.lesson-completed.v1");
+    }
+
+    @Bean
+    public Binding orderPaidBinding(Queue orderPaidQueue, TopicExchange domainExchange) {
+        return BindingBuilder.bind(orderPaidQueue).to(domainExchange).with("trade.payment-confirmed.v1");
     }
 }

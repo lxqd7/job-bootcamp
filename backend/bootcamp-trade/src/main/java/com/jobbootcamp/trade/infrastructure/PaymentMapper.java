@@ -1,0 +1,18 @@
+package com.jobbootcamp.trade.infrastructure;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.jobbootcamp.trade.domain.Payment;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+@Mapper
+public interface PaymentMapper extends BaseMapper<Payment> {
+
+    @Select("""
+            SELECT * FROM payment
+            WHERE channel = #{channel} AND channel_trade_no = #{channelTradeNo}
+            """)
+    Payment selectByChannelTradeNo(@Param("channel") String channel,
+                                   @Param("channelTradeNo") String channelTradeNo);
+}
