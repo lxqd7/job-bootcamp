@@ -24,6 +24,7 @@
         <module>bootcamp-course</module>
         <module>bootcamp-user</module>
         <module>bootcamp-learning</module>
+        <module>bootcamp-trade</module>
         <module>bootcamp-marketing</module>
         <module>bootcamp-gateway</module>
     </modules>

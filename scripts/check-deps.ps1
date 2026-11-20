@@ -12,7 +12,7 @@ function Add-Failure([string]$Message) {
     Write-Err $Message
 }
 
-Write-Info 'Checking local dependencies (course service, user service and frontend dev servers).'
+Write-Info 'Checking local dependencies (course, user, learning, trade and marketing services plus frontend dev servers).'
 
 try {
     $javaVersion = (& java -version 2>&1 | Out-String)
@@ -58,6 +58,13 @@ if (Test-Path $learningJar) {
     Write-Ok 'Learning service jar is built.'
 } else {
     Add-Failure 'Learning service jar is missing. Run: cd backend; .\mvnw.cmd -B verify'
+}
+
+$tradeJar = Join-Path $root 'backend\bootcamp-trade\target\bootcamp-trade-0.1.0-SNAPSHOT.jar'
+if (Test-Path $tradeJar) {
+    Write-Ok 'Trade service jar is built.'
+} else {
+    Add-Failure 'Trade service jar is missing. Run: cd backend; .\mvnw.cmd -B verify'
 }
 
 $gatewayJar = Join-Path $root 'backend\bootcamp-gateway\target\bootcamp-gateway-0.1.0-SNAPSHOT.jar'
@@ -112,14 +119,16 @@ if (-not $mysql) {
     if (-not $env:USER_DB_NAME) { $env:USER_DB_NAME = 'bc_user' }
     if (-not $env:MARKETING_DB_NAME) { $env:MARKETING_DB_NAME = 'bc_marketing' }
     if (-not $env:LEARNING_DB_NAME) { $env:LEARNING_DB_NAME = 'bc_learning' }
+    if (-not $env:TRADE_DB_NAME) { $env:TRADE_DB_NAME = 'bc_trade' }
     $userDb = $env:USER_DB_NAME
     $marketingDb = $env:MARKETING_DB_NAME
     $learningDb = $env:LEARNING_DB_NAME
-    if (($courseDb -notmatch '^[A-Za-z0-9_]+$') -or ($userDb -notmatch '^[A-Za-z0-9_]+$') -or ($marketingDb -notmatch '^[A-Za-z0-9_]+$') -or ($learningDb -notmatch '^[A-Za-z0-9_]+$')) {
+    $tradeDb = $env:TRADE_DB_NAME
+    if (($courseDb -notmatch '^[A-Za-z0-9_]+$') -or ($userDb -notmatch '^[A-Za-z0-9_]+$') -or ($marketingDb -notmatch '^[A-Za-z0-9_]+$') -or ($learningDb -notmatch '^[A-Za-z0-9_]+$') -or ($tradeDb -notmatch '^[A-Za-z0-9_]+$')) {
         Add-Failure 'Database names may only contain letters, digits and underscores.'
     } else {
         $env:MYSQL_PWD = $env:DB_PASSWORD
-        $dbCheck = (& $mysql.Source --protocol=tcp --connect-timeout=5 -h $env:DB_HOST -P $env:DB_PORT -u $env:DB_USERNAME -N -B -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN ('$courseDb','$userDb','$marketingDb','$learningDb') ORDER BY SCHEMA_NAME" 2>$null)
+        $dbCheck = (& $mysql.Source --protocol=tcp --connect-timeout=5 -h $env:DB_HOST -P $env:DB_PORT -u $env:DB_USERNAME -N -B -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN ('$courseDb','$userDb','$marketingDb','$learningDb','$tradeDb') ORDER BY SCHEMA_NAME" 2>$null)
         $mysqlExit = $LASTEXITCODE
         Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
         if ($mysqlExit -ne 0) {
@@ -127,7 +136,7 @@ if (-not $mysql) {
         } else {
             $found = @($dbCheck | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
             $missing = @()
-            foreach ($db in @($courseDb, $userDb, $marketingDb, $learningDb)) {
+            foreach ($db in @($courseDb, $userDb, $marketingDb, $learningDb, $tradeDb)) {
                 if ($found -notcontains $db) { $missing += $db }
             }
             if ($missing.Count -gt 0) {
@@ -135,7 +144,7 @@ if (-not $mysql) {
                     Add-Failure "Database '$db' does not exist. Create it as a dedicated project database: CREATE DATABASE $db CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
                 }
             } else {
-                Write-Ok "MySQL $($env:DB_USERNAME)@$($env:DB_HOST):$($env:DB_PORT) reachable; databases $courseDb, $userDb, $marketingDb and $learningDb exist."
+                Write-Ok "MySQL $($env:DB_USERNAME)@$($env:DB_HOST):$($env:DB_PORT) reachable; databases $courseDb, $userDb, $marketingDb, $learningDb and $tradeDb exist."
             }
         }
     }
@@ -144,8 +153,9 @@ if (-not $mysql) {
 $userPort = if ($env:USER_PORT) { [int]$env:USER_PORT } else { 18081 }
 $marketingPort = if ($env:MARKETING_PORT) { [int]$env:MARKETING_PORT } else { 18087 }
 $learningPort = if ($env:LEARNING_PORT) { [int]$env:LEARNING_PORT } else { 18083 }
+$tradePort = if ($env:TRADE_PORT) { [int]$env:TRADE_PORT } else { 18084 }
 $gatewayPort = if ($env:GATEWAY_PORT) { [int]$env:GATEWAY_PORT } else { 18080 }
-foreach ($port in @($gatewayPort, $userPort, $marketingPort, $learningPort, [int]$env:COURSE_PORT, 15173, 15174)) {
+foreach ($port in @($gatewayPort, $userPort, $marketingPort, $learningPort, $tradePort, [int]$env:COURSE_PORT, 15173, 15174)) {
     if (Test-PortFree $port) {
         Write-Ok "Port $port is free."
     } else {

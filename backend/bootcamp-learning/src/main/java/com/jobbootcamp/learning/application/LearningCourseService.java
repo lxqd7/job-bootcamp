@@ -5,7 +5,7 @@ import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.contracts.internal.CourseCatalogResponse;
 import com.jobbootcamp.learning.domain.LessonProgress;
-import com.jobbootcamp.learning.domain.dto.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.AccessCheckResponse;
 import com.jobbootcamp.learning.domain.dto.LearningCourseResponse;
 import com.jobbootcamp.learning.infrastructure.LessonProgressMapper;
 import org.springframework.stereotype.Service;

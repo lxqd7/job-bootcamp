@@ -1,8 +1,8 @@
 package com.jobbootcamp.learning.controller;
 
 import com.jobbootcamp.learning.application.EntitlementService;
-import com.jobbootcamp.learning.domain.dto.AccessCheckRequest;
-import com.jobbootcamp.learning.domain.dto.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.AccessCheckRequest;
+import com.jobbootcamp.contracts.internal.AccessCheckResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

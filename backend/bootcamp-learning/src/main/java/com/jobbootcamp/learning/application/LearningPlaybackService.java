@@ -10,7 +10,7 @@ import com.jobbootcamp.learning.domain.CompletionEvent;
 import com.jobbootcamp.learning.domain.LessonProgress;
 import com.jobbootcamp.learning.domain.OutboxEvent;
 import com.jobbootcamp.learning.domain.UserGuard;
-import com.jobbootcamp.learning.domain.dto.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.AccessCheckResponse;
 import com.jobbootcamp.learning.domain.dto.ProgressRequest;
 import com.jobbootcamp.learning.domain.dto.ProgressResponse;
 import com.jobbootcamp.learning.infrastructure.CompletionEventMapper;

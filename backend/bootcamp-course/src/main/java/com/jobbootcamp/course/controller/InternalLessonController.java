@@ -8,7 +8,10 @@ import com.jobbootcamp.contracts.internal.PlayAuthorizationResponse;
 import com.jobbootcamp.contracts.internal.PlaySessionCheckRequest;
 import com.jobbootcamp.contracts.internal.PlaySessionCheckResponse;
 import com.jobbootcamp.contracts.internal.PlaySessionIssueRequest;
+import com.jobbootcamp.contracts.internal.ProductSnapshotRequest;
+import com.jobbootcamp.contracts.internal.ProductSnapshotResponse;
 import com.jobbootcamp.course.application.LessonPlayService;
+import com.jobbootcamp.course.application.ProductSnapshotService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,9 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalLessonController {
 
     private final LessonPlayService lessonPlayService;
+    private final ProductSnapshotService productSnapshotService;
 
-    public InternalLessonController(LessonPlayService lessonPlayService) {
+    public InternalLessonController(LessonPlayService lessonPlayService,
+                                    ProductSnapshotService productSnapshotService) {
         this.lessonPlayService = lessonPlayService;
+        this.productSnapshotService = productSnapshotService;
     }
 
     @PostMapping("/lessons/metadata")
@@ -32,6 +38,11 @@ public class InternalLessonController {
     @PostMapping("/courses/catalog")
     public CourseCatalogResponse catalog(@RequestBody CourseCatalogRequest request) {
         return lessonPlayService.catalog(request.courseId());
+    }
+
+    @PostMapping("/products/snapshots")
+    public ProductSnapshotResponse snapshot(@RequestBody ProductSnapshotRequest request) {
+        return productSnapshotService.courseSnapshot(request.productId());
     }
 
     @PostMapping("/play-sessions/issue")

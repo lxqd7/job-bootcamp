@@ -7,7 +7,7 @@ import com.jobbootcamp.learning.domain.CourseGrant;
 import com.jobbootcamp.learning.domain.EntitlementSource;
 import com.jobbootcamp.learning.domain.FreeClaimReceipt;
 import com.jobbootcamp.learning.domain.UserGuard;
-import com.jobbootcamp.learning.domain.dto.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.AccessCheckResponse;
 import com.jobbootcamp.learning.domain.dto.MyCourseItem;
 import com.jobbootcamp.learning.domain.dto.MyCourseRow;
 import com.jobbootcamp.learning.domain.dto.MyRouteItem;

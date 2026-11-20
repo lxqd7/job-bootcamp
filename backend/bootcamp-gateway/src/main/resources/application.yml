@@ -12,6 +12,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: trade-service
+              uri: http://127.0.0.1:18084
+              predicates:
+                - Path=/api/v1/trade/**,/api/v1/orders/**
             - id: learning-service
               uri: http://127.0.0.1:18083
               predicates:
@@ -50,6 +54,7 @@ spring:
                   - Content-Type
                   - X-CSRF-Token
                   - X-Client-App
+                  - Idempotency-Key
                 allowCredentials: true
                 maxAge: 3600
 
