@@ -31,4 +31,12 @@ public interface UserGuardMapper {
     int updateSequence(@Param("userId") Long userId,
                        @Param("sequence") long sequence,
                        @Param("now") LocalDateTime now);
+
+    @Update("""
+            UPDATE user_guard SET completion_event_sequence = #{sequence}, updated_at = #{now}
+            WHERE user_id = #{userId}
+            """)
+    int updateCompletionSequence(@Param("userId") Long userId,
+                                 @Param("sequence") long sequence,
+                                 @Param("now") LocalDateTime now);
 }

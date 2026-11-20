@@ -36,6 +36,8 @@ app:
   user:
     session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
     profile-batch-url: ${USER_PROFILE_BATCH_URL:http://127.0.0.1:18081/int/v1/profiles/batch}
+  learning:
+    completion-events-url: ${LEARNING_COMPLETION_EVENTS_URL:http://127.0.0.1:18083/int/v1/completion-events}
   points:
     daily-video-cap: 50
     test-api-enabled: ${POINTS_TEST_API_ENABLED:false}

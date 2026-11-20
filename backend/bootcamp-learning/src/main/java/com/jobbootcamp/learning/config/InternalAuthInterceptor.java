@@ -25,6 +25,8 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String operation = request.getRequestURI().startsWith("/int/v1/free-claims")
                 ? "free-claims:create"
+                : request.getRequestURI().startsWith("/int/v1/completion-events")
+                ? "completion-events:read"
                 : "access:check";
         try {
             InternalTokenCodec.verify(secret, request.getHeader(SERVICE_TOKEN_HEADER),

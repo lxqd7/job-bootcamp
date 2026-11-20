@@ -325,6 +325,30 @@ public class MediaService {
     }
 
     @Transactional
+    public MediaAuthorization authorizePlayback(Long courseId, Long lessonId, Long mediaId, Long catalogVersion,
+                                                 Long userId, Long authSessionId) {
+        MediaAsset asset = requireMedia(mediaId);
+        if (!"AVAILABLE".equals(asset.getStatus()) || Boolean.TRUE.equals(asset.getDetached())) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "媒体未就绪或已解除引用");
+        }
+        Instant expiresAt = Instant.now().plusSeconds(previewTtlSeconds);
+        String playSessionId = UUID.randomUUID().toString();
+        PlaySession session = new PlaySession();
+        session.setId(playSessionId);
+        session.setUserId(userId);
+        session.setAuthSessionId(authSessionId);
+        session.setCourseId(courseId);
+        session.setLessonId(lessonId);
+        session.setMediaId(asset.getId());
+        session.setCatalogVersion(catalogVersion == null ? 0L : catalogVersion);
+        session.setIssuedAt(LocalDateTime.now(ZoneOffset.UTC));
+        session.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));
+        session.setMode("LEARN");
+        playSessionMapper.insert(session);
+        return mediaPort(asset).authorize(mediaRef(asset), userId, authSessionId, playSessionId, expiresAt);
+    }
+
+    @Transactional
     public MediaItemView detach(Long id, Long revision) {
         MediaAsset asset = requireMedia(id);
         int updated = mediaMapper.update(null, Wrappers.<MediaAsset>lambdaUpdate()

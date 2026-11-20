@@ -30,9 +30,17 @@ app:
     secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
   user:
     session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+  course:
+    metadata-url: ${COURSE_METADATA_URL:http://127.0.0.1:18082/int/v1/lessons/metadata}
+    play-issue-url: ${COURSE_PLAY_ISSUE_URL:http://127.0.0.1:18082/int/v1/play-sessions/issue}
+    play-check-url: ${COURSE_PLAY_CHECK_URL:http://127.0.0.1:18082/int/v1/play-sessions/check}
   outbox:
     transport: ${OUTBOX_TRANSPORT:none}
     exchange: ${RABBIT_EXCHANGE:bc.domain.v1}
+    relay-enabled: ${OUTBOX_RELAY_ENABLED:false}
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:2000}
+    batch-size: ${OUTBOX_BATCH_SIZE:20}
+    lease-seconds: ${OUTBOX_LEASE_SECONDS:30}
 
 management:
   endpoints:
