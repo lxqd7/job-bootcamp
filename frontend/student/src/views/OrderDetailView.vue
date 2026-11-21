@@ -136,6 +136,25 @@ onBeforeUnmount(() => {
         <p v-if="order.items.length === 0" class="empty">订单没有课程明细。</p>
       </section>
 
+      <section v-if="order.coupons.length > 0" class="coupons">
+        <h2>优惠券明细</h2>
+        <article v-for="coupon in order.coupons" :key="coupon.userCouponId" class="coupon">
+          <div>
+            <p class="item-title">第 {{ coupon.applyOrder }} 张 · 券 #{{ coupon.userCouponId }}</p>
+            <p class="meta">
+              券前基数 {{ formatCent(coupon.baseCent) }}
+              <template v-if="coupon.allocation.length > 0">
+                · 分摊：<span v-for="(allocation, index) in coupon.allocation" :key="allocation.courseId">
+                  {{ index > 0 ? '、' : '' }}课程 {{ allocation.courseId }} {{ formatCent(allocation.discountCent) }}
+                </span>
+              </template>
+            </p>
+          </div>
+          <span class="coupon-discount">-{{ formatCent(coupon.discountCent) }}</span>
+        </article>
+        <p class="fine-print">优惠券在订单创建时一次性锁定；支付成功后核销，未支付关闭时释放并保留原有效期。</p>
+      </section>
+
       <section class="amounts">
         <div><span>订单金额</span><span>{{ formatCent(order.pricing.totalCent) }}</span></div>
         <div><span>抵扣</span><span>{{ formatCent(order.pricing.creditCent) }}</span></div>
@@ -278,6 +297,32 @@ h1 {
   margin: 2px 0 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.coupons {
+  margin-top: 30px;
+}
+
+.coupons h2 {
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.coupon {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.coupon-discount {
+  color: var(--pine);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .amounts {

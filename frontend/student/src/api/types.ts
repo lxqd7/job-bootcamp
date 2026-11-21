@@ -242,6 +242,19 @@ export interface ProgressResult {
   totalCount: number
 }
 
+export interface CouponAllocation {
+  courseId: string
+  discountCent: number
+}
+
+export interface CouponPlanLine {
+  userCouponId: string
+  applyOrder: number
+  baseCent: number
+  discountCent: number
+  allocation: CouponAllocation[]
+}
+
 export interface TradeQuote {
   quoteId: string
   status: string
@@ -254,7 +267,7 @@ export interface TradeQuote {
     version: number
   }
   courses: QuoteCourseLine[]
-  couponPlan: unknown[]
+  couponPlan: CouponPlanLine[]
   totalCent: number
   creditCent: number
   discountCent: number
@@ -300,7 +313,7 @@ export interface OrderResponse {
     payableCent: number
   }
   items: OrderItem[]
-  coupons: unknown[]
+  coupons: CouponPlanLine[]
   mode: string
 }
 

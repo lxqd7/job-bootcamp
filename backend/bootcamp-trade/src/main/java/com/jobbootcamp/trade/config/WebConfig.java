@@ -8,9 +8,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final StudentAuthInterceptor studentAuthInterceptor;
+    private final InternalAuthInterceptor internalAuthInterceptor;
 
-    public WebConfig(StudentAuthInterceptor studentAuthInterceptor) {
+    public WebConfig(StudentAuthInterceptor studentAuthInterceptor,
+                     InternalAuthInterceptor internalAuthInterceptor) {
         this.studentAuthInterceptor = studentAuthInterceptor;
+        this.internalAuthInterceptor = internalAuthInterceptor;
     }
 
     @Override
@@ -19,5 +22,6 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/v1/trade/**", "/api/v1/orders/**",
                         "/api/v1/refunds/**", "/api/v1/dev/payments/**", "/dev/payments/**",
                         "/api/v1/admin/orders/**");
+        registry.addInterceptor(internalAuthInterceptor).addPathPatterns("/int/v1/**");
     }
 }

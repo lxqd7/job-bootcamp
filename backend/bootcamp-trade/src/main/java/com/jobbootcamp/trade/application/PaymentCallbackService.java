@@ -22,9 +22,13 @@ import com.jobbootcamp.trade.infrastructure.PendingCourseMapper;
 import com.jobbootcamp.trade.infrastructure.TradeGuardMapper;
 import com.jobbootcamp.trade.infrastructure.TradeOrderMapper;
 import com.jobbootcamp.trade.payment.PaymentPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -46,6 +50,7 @@ import java.util.UUID;
 public class PaymentCallbackService {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Logger log = LoggerFactory.getLogger(PaymentCallbackService.class);
 
     private final PaymentPort paymentPort;
     private final PaymentRequestMapper requestMapper;
@@ -59,6 +64,7 @@ public class PaymentCallbackService {
     private final OutboxEventMapper outboxMapper;
     private final RefundService refundService;
     private final LearningClient learningClient;
+    private final CouponClient couponClient;
     private final DeductionLinkMapper deductionLinkMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -74,6 +80,7 @@ public class PaymentCallbackService {
                                   OutboxEventMapper outboxMapper,
                                   RefundService refundService,
                                   LearningClient learningClient,
+                                  CouponClient couponClient,
                                   DeductionLinkMapper deductionLinkMapper,
                                   PlatformTransactionManager transactionManager) {
         this.paymentPort = paymentPort;
@@ -88,6 +95,7 @@ public class PaymentCallbackService {
         this.outboxMapper = outboxMapper;
         this.refundService = refundService;
         this.learningClient = learningClient;
+        this.couponClient = couponClient;
         this.deductionLinkMapper = deductionLinkMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -204,11 +212,13 @@ public class PaymentCallbackService {
             requestMapper.updateState(request.getId(), "CLOSED", now);
             // 注意这里只写“已付款”事实和 outbox；学习来源由异步消费者建立，fulfillment 留在 PENDING。
             insertPaymentConfirmedOutbox(order, payment, paidAt, now);
+            useCouponsAfterCommit(order, now);
         } else {
             if (order != null && ("WAIT_PAY".equals(order.getState()) || "CLOSING".equals(order.getState()))) {
                 orderMapper.markClosed(order.getId(), "CLOSED", now);
                 pendingCourseMapper.deleteByOrderId(order.getId());
                 releaseRoutePurchase(order, now);
+                releaseCouponsAfterCommit(order, now);
             }
             requestMapper.updateState(request.getId(), "CLOSED", now);
             if (order != null) {
@@ -235,6 +245,52 @@ public class PaymentCallbackService {
         try {
             deductionLinkMapper.updateState(order.getId(), "RESERVED", "RELEASED", now);
         } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void useCouponsAfterCommit(TradeOrder order, LocalDateTime now) {
+        if (!hasCouponLock(order)) {
+            return;
+        }
+        afterCommit(() -> {
+            try {
+                couponClient.use(order.getId(), order.getUserId(), order.getPricingHash());
+                orderMapper.updateCouponState(order.getId(), "USED", now);
+            } catch (RuntimeException e) {
+                log.warn("coupon use deferred to recovery orderId={} error={}", order.getId(), e.getMessage());
+            }
+        });
+    }
+
+    private void releaseCouponsAfterCommit(TradeOrder order, LocalDateTime now) {
+        if (!hasCouponLock(order)) {
+            return;
+        }
+        afterCommit(() -> {
+            try {
+                couponClient.release(order.getId(), order.getUserId(), order.getPricingHash(), "CLOSED");
+                orderMapper.updateCouponState(order.getId(), "RELEASED", now);
+            } catch (RuntimeException e) {
+                log.warn("coupon release deferred to recovery orderId={} error={}", order.getId(), e.getMessage());
+            }
+        });
+    }
+
+    private boolean hasCouponLock(TradeOrder order) {
+        return order != null && order.getPricingHash() != null && !order.getPricingHash().isBlank()
+                && !"NONE".equals(order.getCouponMode());
+    }
+
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
         }
     }
 

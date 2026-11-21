@@ -229,12 +229,14 @@ export async function reportProgress(
 
 export async function createQuote(
   productType: 'COURSE' | 'ROUTE',
-  productId: string
+  productId: string,
+  mode: 'NONE' | 'AUTO' | 'MANUAL' = 'NONE',
+  couponIds: string[] = []
 ): Promise<TradeQuote> {
   const { data } = await http.post<ApiEnvelope<TradeQuote>>('/api/v1/trade/quotes', {
     productType,
     productId: Number(productId),
-    couponSelection: { mode: 'NONE', ids: [] }
+    couponSelection: { mode, ids: couponIds.map(Number) }
   })
   if (data.code !== 'OK') {
     throw new Error(data.message || '报价失败')
@@ -242,14 +244,23 @@ export async function createQuote(
   return data.data
 }
 
+export async function loadQuote(quoteId: string): Promise<TradeQuote> {
+  const { data } = await http.get<ApiEnvelope<TradeQuote>>(`/api/v1/trade/quotes/${quoteId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '报价查询失败')
+  }
+  return data.data
+}
+
 export async function createOrder(
   quoteId: string,
   quoteHash: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  selectedCouponIds: string[] = []
 ): Promise<OrderResponse> {
   const { data } = await http.post<ApiEnvelope<OrderResponse>>(
     '/api/v1/orders',
-    { quoteId, quoteHash, selectedCouponIds: [] },
+    { quoteId, quoteHash, selectedCouponIds: selectedCouponIds.map(Number) },
     { headers: { 'Idempotency-Key': idempotencyKey } }
   )
   if (data.code !== 'OK') {

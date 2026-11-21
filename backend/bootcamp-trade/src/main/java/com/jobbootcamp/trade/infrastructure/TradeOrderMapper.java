@@ -47,4 +47,12 @@ public interface TradeOrderMapper extends BaseMapper<TradeOrder> {
     int updateFulfillment(@Param("id") Long id,
                           @Param("fulfillmentState") String fulfillmentState,
                           @Param("now") LocalDateTime now);
+
+    @Update("""
+            UPDATE trade_order SET coupon_state = #{couponState}, updated_at = #{now}
+            WHERE id = #{id} AND coupon_state IN ('LOCKED', 'PENDING')
+            """)
+    int updateCouponState(@Param("id") Long id,
+                          @Param("couponState") String couponState,
+                          @Param("now") LocalDateTime now);
 }

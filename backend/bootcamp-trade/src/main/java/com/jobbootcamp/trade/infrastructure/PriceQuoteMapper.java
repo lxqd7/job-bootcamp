@@ -33,7 +33,7 @@ public interface PriceQuoteMapper extends BaseMapper<PriceQuote> {
     @Update("""
             UPDATE price_quote
             SET status = #{status}, discount_cent = #{discountCent}, payable_cent = #{payableCent},
-                result_hash = #{resultHash}, coupon_plan_json = #{couponPlanJson},
+                result_hash = #{resultHash}, pricing_hash = #{pricingHash}, coupon_plan_json = #{couponPlanJson},
                 result_json = #{resultJson}, updated_at = #{now}
             WHERE quote_id = #{quoteId} AND status = 'CALCULATING'
             """)
@@ -42,6 +42,7 @@ public interface PriceQuoteMapper extends BaseMapper<PriceQuote> {
                             @Param("discountCent") long discountCent,
                             @Param("payableCent") long payableCent,
                             @Param("resultHash") String resultHash,
+                            @Param("pricingHash") String pricingHash,
                             @Param("couponPlanJson") String couponPlanJson,
                             @Param("resultJson") String resultJson,
                             @Param("now") LocalDateTime now);

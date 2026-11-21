@@ -15,6 +15,8 @@ import com.jobbootcamp.trade.payment.PaymentPort;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
@@ -34,6 +36,7 @@ public class PaymentService {
     private final PendingCourseMapper pendingCourseMapper;
     private final PaymentPort paymentPort;
     private final LearningClient learningClient;
+    private final CouponClient couponClient;
     private final DeductionLinkMapper deductionLinkMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -42,6 +45,7 @@ public class PaymentService {
                           PendingCourseMapper pendingCourseMapper,
                           PaymentPort paymentPort,
                           LearningClient learningClient,
+                          CouponClient couponClient,
                           DeductionLinkMapper deductionLinkMapper,
                           PlatformTransactionManager transactionManager) {
         this.orderMapper = orderMapper;
@@ -49,6 +53,7 @@ public class PaymentService {
         this.pendingCourseMapper = pendingCourseMapper;
         this.paymentPort = paymentPort;
         this.learningClient = learningClient;
+        this.couponClient = couponClient;
         this.deductionLinkMapper = deductionLinkMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -203,6 +208,7 @@ public class PaymentService {
                         orderMapper.markClosed(order.getId(), "CLOSED", now);
                         pendingCourseMapper.deleteByOrderId(order.getId());
                         releaseRouteHolds(order);
+                        releaseCouponsAfterCommit(order, now);
                     }
                     return true;
                 }
@@ -225,6 +231,7 @@ public class PaymentService {
             orderMapper.markClosed(order.getId(), "CLOSED", now);
             pendingCourseMapper.deleteByOrderId(order.getId());
             releaseRouteHolds(order);
+            releaseCouponsAfterCommit(order, now);
             return;
         }
         PaymentPort.CloseResult close = paymentPort.close(request);
@@ -233,6 +240,7 @@ public class PaymentService {
             orderMapper.markClosed(order.getId(), "CLOSED", now);
             pendingCourseMapper.deleteByOrderId(order.getId());
             releaseRouteHolds(order);
+            releaseCouponsAfterCommit(order, now);
         } else {
             requestMapper.updateState(request.getId(), "UNKNOWN", now);
         }
@@ -251,6 +259,31 @@ public class PaymentService {
             deductionLinkMapper.updateState(order.getId(), "RESERVED", "RELEASED",
                     LocalDateTime.now(ZoneOffset.UTC));
         } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void releaseCouponsAfterCommit(TradeOrder order, LocalDateTime now) {
+        if (order.getPricingHash() == null || order.getPricingHash().isBlank()
+                || "NONE".equals(order.getCouponMode())) {
+            return;
+        }
+        Runnable action = () -> {
+            try {
+                couponClient.release(order.getId(), order.getUserId(), order.getPricingHash(), "CLOSED");
+                orderMapper.updateCouponState(order.getId(), "RELEASED", now);
+            } catch (RuntimeException ignored) {
+                // 营销对账任务会在宽限期后按交易订单状态补齐释放。
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
         }
     }
 

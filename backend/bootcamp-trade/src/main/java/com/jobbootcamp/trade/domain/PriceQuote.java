@@ -24,6 +24,8 @@ public class PriceQuote {
     private Long payableCent;
     private String inputHash;
     private String resultHash;
+    private String pricingHash;
+    private String couponMode;
     private String status;
     private String couponPlanJson;
     private String inputJson;
@@ -60,6 +62,10 @@ public class PriceQuote {
     public void setInputHash(String inputHash) { this.inputHash = inputHash; }
     public String getResultHash() { return resultHash; }
     public void setResultHash(String resultHash) { this.resultHash = resultHash; }
+    public String getPricingHash() { return pricingHash; }
+    public void setPricingHash(String pricingHash) { this.pricingHash = pricingHash; }
+    public String getCouponMode() { return couponMode; }
+    public void setCouponMode(String couponMode) { this.couponMode = couponMode; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getCouponPlanJson() { return couponPlanJson; }

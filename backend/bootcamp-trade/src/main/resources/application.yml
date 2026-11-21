@@ -42,6 +42,9 @@ app:
   marketing:
     pricing-calculate-url: ${MARKETING_PRICING_URL:http://127.0.0.1:18087/int/v1/pricing/calculate}
     pricing-status-url: ${MARKETING_PRICING_STATUS_URL:http://127.0.0.1:18087/int/v1/pricing/status}
+    coupon-prepare-url: ${MARKETING_COUPON_PREPARE_URL:http://127.0.0.1:18087/int/v1/coupon-locks/prepare}
+    coupon-use-url: ${MARKETING_COUPON_USE_URL:http://127.0.0.1:18087/int/v1/coupon-locks/use}
+    coupon-release-url: ${MARKETING_COUPON_RELEASE_URL:http://127.0.0.1:18087/int/v1/coupon-locks/release}
   payment:
     mode: ${PAYMENT_MODE:mock}
     mock-signing-key: ${PAYMENT_MOCK_SIGNING_KEY:dev-mock-payment-key}

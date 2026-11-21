@@ -101,6 +101,8 @@ public class QuoteService {
         quote.setPayableCent(pricing.payableCent());
         quote.setInputHash(QuoteHasher.inputHash(userId, productType, snapshot.id(), choice.mode()));
         quote.setResultHash(pricing.resultHash(baseHash));
+        quote.setPricingHash(pricing.pricingHash());
+        quote.setCouponMode(choice.mode());
         quote.setStatus(pricing.status());
         quote.setCouponPlanJson(pricing.planJson());
         quote.setInputJson(inputJson(userId, productType, snapshot.id(), choice));
@@ -190,6 +192,8 @@ public class QuoteService {
         quote.setPayableCent(pricing.payableCent());
         quote.setInputHash(QuoteHasher.inputHash(userId, productType, route.routeId(), choice.mode()));
         quote.setResultHash(pricing.resultHash(baseHash));
+        quote.setPricingHash(pricing.pricingHash());
+        quote.setCouponMode(choice.mode());
         quote.setStatus(pricing.status());
         quote.setCouponPlanJson(pricing.planJson());
         quote.setInputJson(inputJson(userId, productType, route.routeId(), choice));
@@ -228,8 +232,8 @@ public class QuoteService {
         }
         if ("FAILED".equals(result.status())) {
             quoteMapper.updatePricingResult(quote.getQuoteId(), "FAILED", quote.getDiscountCent(),
-                    quote.getPayableCent(), quote.getResultHash(), null, quote.getResultJson(),
-                    LocalDateTime.now(ZoneOffset.UTC));
+                    quote.getPayableCent(), quote.getResultHash(), quote.getPricingHash(), null,
+                    quote.getResultJson(), LocalDateTime.now(ZoneOffset.UTC));
             throw pricingFailure(result);
         }
         applyPricing(quote, result);
@@ -246,11 +250,12 @@ public class QuoteService {
         }
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         quoteMapper.updatePricingResult(quote.getQuoteId(), "READY", result.discountCent(),
-                result.payableCent(), resultHash, planJson, resultJson, now);
+                result.payableCent(), resultHash, result.pricingHash(), planJson, resultJson, now);
         quote.setStatus("READY");
         quote.setDiscountCent(result.discountCent());
         quote.setPayableCent(result.payableCent());
         quote.setResultHash(resultHash);
+        quote.setPricingHash(result.pricingHash());
         quote.setCouponPlanJson(planJson);
         quote.setResultJson(resultJson);
         quote.setUpdatedAt(now);

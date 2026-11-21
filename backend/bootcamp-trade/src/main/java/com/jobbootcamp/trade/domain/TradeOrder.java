@@ -18,6 +18,10 @@ public class TradeOrder {
     private String state;
     private String fulfillmentState;
     private Long paymentSequence;
+    private String quoteId;
+    private String pricingHash;
+    private String couponMode;
+    private String couponState;
     private Long totalCent;
     private Long creditCent;
     private Long discountCent;
@@ -48,6 +52,14 @@ public class TradeOrder {
     public void setFulfillmentState(String fulfillmentState) { this.fulfillmentState = fulfillmentState; }
     public Long getPaymentSequence() { return paymentSequence; }
     public void setPaymentSequence(Long paymentSequence) { this.paymentSequence = paymentSequence; }
+    public String getQuoteId() { return quoteId; }
+    public void setQuoteId(String quoteId) { this.quoteId = quoteId; }
+    public String getPricingHash() { return pricingHash; }
+    public void setPricingHash(String pricingHash) { this.pricingHash = pricingHash; }
+    public String getCouponMode() { return couponMode; }
+    public void setCouponMode(String couponMode) { this.couponMode = couponMode; }
+    public String getCouponState() { return couponState; }
+    public void setCouponState(String couponState) { this.couponState = couponState; }
     public Long getTotalCent() { return totalCent; }
     public void setTotalCent(Long totalCent) { this.totalCent = totalCent; }
     public Long getCreditCent() { return creditCent; }

@@ -38,6 +38,10 @@ app:
     profile-batch-url: ${USER_PROFILE_BATCH_URL:http://127.0.0.1:18081/int/v1/profiles/batch}
   learning:
     completion-events-url: ${LEARNING_COMPLETION_EVENTS_URL:http://127.0.0.1:18083/int/v1/completion-events}
+  trade:
+    order-status-url: ${TRADE_ORDER_STATUS_URL:http://127.0.0.1:18084/int/v1/orders/status-batch}
+  coupon:
+    recovery-poll-ms: ${COUPON_RECOVERY_POLL_MS:30000}
   points:
     daily-video-cap: 50
     test-api-enabled: ${POINTS_TEST_API_ENABLED:false}
