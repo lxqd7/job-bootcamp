@@ -56,6 +56,7 @@ async function claimFree(): Promise<void> {
   claimNotice.value = ''
   try {
     let result = await claimCourse(course.value.id)
+    // 领取先由课程库受理，学习侧异步建立 FREE 来源；短暂轮询同一 claimId，不重复创建领取。
     for (let attempt = 0; result.status === 'PROCESSING' && attempt < 20; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 500))
       result = await loadClaim(result.claimId)

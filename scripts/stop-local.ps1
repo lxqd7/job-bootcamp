@@ -22,6 +22,7 @@ foreach ($record in $records) {
         continue
     }
 
+    # PID 可能已被系统复用；命令行不匹配时拒绝停止，避免误杀用户进程。
     $expected = switch ($record.kind) {
         'gateway' { 'bootcamp-gateway' }
         'course' { 'bootcamp-course' }

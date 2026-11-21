@@ -23,6 +23,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 网关统一认证边界：先清除外部可伪造的身份头，再按白名单放行公共接口；
+ * 受保护请求由 user 服务校验会话，认证服务不可用时返回 503 而不是放行。
+ */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class AuthWebFilter implements WebFilter {
@@ -76,6 +80,7 @@ public class AuthWebFilter implements WebFilter {
             return writeError(exchange, HttpStatus.NOT_FOUND, "NOT_FOUND", "资源不存在", traceId);
         }
 
+        // 身份头只能由网关在认证后重建；外部请求携带的值一律丢弃，防止伪造。
         ServerHttpRequest cleaned = exchange.getRequest().mutate()
                 .headers(headers -> {
                     headers.remove("X-User-Id");
@@ -109,6 +114,7 @@ public class AuthWebFilter implements WebFilter {
                 .timeout(Duration.ofMillis(timeoutMs))
                 .map(Optional::of)
                 .onErrorResume(error -> {
+                    // 认证依赖故障不能降级成“未登录”，也不能放行，统一返回可重试的 503。
                     log.warn("session check failed: {}", error.getMessage());
                     return Mono.just(Optional.empty());
                 })

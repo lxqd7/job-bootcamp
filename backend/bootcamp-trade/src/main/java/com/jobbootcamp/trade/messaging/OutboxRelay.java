@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 交易事件投递器；支付事实已先落库，发送失败只影响异步开通，不影响已支付状态。
+ */
 @Service
 public class OutboxRelay {
 

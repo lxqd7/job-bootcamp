@@ -9,6 +9,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 
+/**
+ * DEMO 播放 URL 的 HMAC 签名器；签名覆盖媒体、用户、会话、播放会话和过期时间，防止改参数重放。
+ */
 @Component
 public class DemoMediaSigner {
 

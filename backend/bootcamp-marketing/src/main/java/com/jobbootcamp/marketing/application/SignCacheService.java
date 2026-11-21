@@ -14,6 +14,10 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
+/**
+ * 签到日历的 Redis Bitmap 投影。缺失时从 MySQL 重建，Redis 故障只降级为无缓存，
+ * 签到事实始终以 sign_record 为准。
+ */
 @Service
 public class SignCacheService {
 

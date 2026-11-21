@@ -16,6 +16,10 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * 开发用 MOCK 场景：只负责构造签名回调和关闭/未知状态，实际处理仍走统一回调服务。
+ * 参数中的 paidAt 仅管理员场景可用，学生正常支付请求不能指定。
+ */
 @Service
 @ConditionalOnProperty(name = "app.payment.mock-scenario-enabled", havingValue = "true")
 public class PaymentScenarioService {

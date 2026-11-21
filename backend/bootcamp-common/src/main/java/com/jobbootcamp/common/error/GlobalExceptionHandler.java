@@ -16,6 +16,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
+/**
+ * 统一错误出口：业务异常保留稳定 code/message/data，参数错误附加字段明细，
+ * 其余异常只记录服务端日志并返回通用 INTERNAL_ERROR，避免泄漏实现细节。
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

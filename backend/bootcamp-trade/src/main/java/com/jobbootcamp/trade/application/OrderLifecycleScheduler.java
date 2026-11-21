@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * 订单到期/关闭未知重试任务；它只推进 CLOSING/CLOSED，不把未确认收款当成已支付。
+ */
 @Component
 public class OrderLifecycleScheduler {
 

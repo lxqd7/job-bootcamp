@@ -30,6 +30,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+/**
+ * 账号与会话生命周期。refresh token 只以哈希落库并单次轮换：
+ * 已使用过的 refresh 再次出现视为令牌泄漏，撤销该用户全部活跃会话并递增 token_version。
+ */
 @Service
 public class AuthService {
 
@@ -133,6 +137,7 @@ public class AuthService {
             throw unauthorized("登录已失效，请重新登录");
         }
         String refreshHash = tokenHasher.sha256(refreshToken);
+        // 行锁把同一会话的并发刷新串行化：只有一个请求能消费旧 refresh token。
         AuthSession session = sessionMapper.selectOne(Wrappers.<AuthSession>lambdaQuery()
                 .eq(AuthSession::getRefreshHash, refreshHash)
                 .last("FOR UPDATE"));
@@ -220,6 +225,7 @@ public class AuthService {
                 .set(UserAccount::getUpdatedAt, now)
                 .setSql("revision = revision + 1")
                 .eq(UserAccount::getId, userId));
+        // 改密后旧会话全部失效；只撤销未撤销的行，保留历史撤销时间。
         sessionMapper.update(null, Wrappers.<AuthSession>lambdaUpdate()
                 .set(AuthSession::getRevokedAt, now)
                 .set(AuthSession::getUpdatedAt, now)
@@ -234,6 +240,7 @@ public class AuthService {
         if (history != null) {
             AuthSession oldSession = sessionMapper.selectById(history.getSessionId());
             if (oldSession != null) {
+                // 旧令牌重放说明可能泄漏：撤销该用户所有会话并让现有 access token 立即失效。
                 LocalDateTime now = utcNow();
                 sessionMapper.update(null, Wrappers.<AuthSession>lambdaUpdate()
                         .set(AuthSession::getRevokedAt, now)

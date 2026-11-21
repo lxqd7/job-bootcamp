@@ -44,6 +44,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * 路线版本与成员 epoch。成员加入生成新 epoch，移除只关闭旧 epoch，不物理删除；
+ * 每次发布生成不可变 route_version，并通过 outbox 通知学习/福利侧重放成员区间。
+ */
 @Service
 public class RouteService {
 
@@ -302,6 +306,7 @@ public class RouteService {
         for (RouteMemberRequest member : members) {
             requested.add(member.courseId());
         }
+        // 移除成员只关闭 epoch 并回到草稿差集，历史购买仍可按 [joinedAt, removedAt) 重放。
         List<String> removedEpochIds = new ArrayList<>();
         for (RouteMemberCurrent member : current) {
             if (!requested.contains(member.getCourseId())) {
@@ -403,6 +408,7 @@ public class RouteService {
 
     private void emitRouteChanged(Long routeId, long versionNo, LocalDateTime now,
                                   List<Map<String, Object>> addedEpochs, List<String> removedEpochIds) {
+        // 事件只携带增量 epoch，不携带当前会员列表；消费方按成员区间重放，避免并发变更漏课。
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("routeId", String.valueOf(routeId));
         payload.put("version", versionNo);
@@ -477,6 +483,7 @@ public class RouteService {
         List<RouteAllocation.Share> shares = RouteAllocation.allocate(routePrice, weights);
         Map<Long, Long> allocations = new HashMap<>();
         for (RouteAllocation.Share share : shares) {
+            // 每门付费课至少分摊 1 元，避免出现 0 元抵扣或异常退款基准。
             if (share.allocatedCent() < 100) {
                 throw new BusinessException(ErrorCode.VALIDATION_FAILED,
                         "每门付费课程在套餐中的分摊至少 1 元，课程 " + share.courseId() + " 当前为 "

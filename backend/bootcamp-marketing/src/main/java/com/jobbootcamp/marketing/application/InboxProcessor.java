@@ -16,6 +16,10 @@ import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.function.Consumer;
 
+/**
+ * 消费端幂等：eventId 与业务写入在同一事务内提交；重复 eventId 直接返回 false，
+ * 未完成的事务不会留下可抢占的已处理标记。
+ */
 @Service
 public class InboxProcessor {
 

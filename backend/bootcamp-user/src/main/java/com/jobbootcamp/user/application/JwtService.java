@@ -20,6 +20,10 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
+/**
+ * RS256 access token 的签发与校验。tokenVersion 与会话 ID 一并写入，
+ * 资源服务通过会话校验即可让改密、禁用或重放撤销立即生效。
+ */
 @Service
 public class JwtService {
 

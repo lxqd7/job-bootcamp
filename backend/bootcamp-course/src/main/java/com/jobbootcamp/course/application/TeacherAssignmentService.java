@@ -27,6 +27,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 教师分配是课程/路线两个独立集合，不能由教师端自行扩大；
+ * 更新使用教师级 revision 做乐观锁，整组替换后新会话读取新分配。
+ */
 @Service
 public class TeacherAssignmentService {
 

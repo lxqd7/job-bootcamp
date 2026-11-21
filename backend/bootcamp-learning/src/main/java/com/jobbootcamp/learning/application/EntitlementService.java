@@ -30,6 +30,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 学习权益来源账本。来源按 (user,type,sourceKey) 唯一，课程 grant 按 (source,course) 唯一；
+ * 所有授予/重放都先锁 user_guard，保证同一用户的 sequence 和来源状态线性推进。
+ */
 @Service
 public class EntitlementService {
 
@@ -173,6 +177,7 @@ public class EntitlementService {
             throw new com.jobbootcamp.common.error.BusinessException(
                     com.jobbootcamp.common.error.ErrorCode.VALIDATION_FAILED, "付费授予命令参数不合法");
         }
+        // rowTemplate 先独立提交 guard 行，主事务再做来源账本更新，避免首次并发创建死锁。
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         rowTemplate.executeWithoutResult(status -> guardMapper.insertIfAbsent(userId, now));
         return transactionTemplate.execute(status -> grantPurchaseInTransaction(

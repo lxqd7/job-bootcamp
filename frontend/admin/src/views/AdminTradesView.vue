@@ -92,6 +92,7 @@ function changePage(next: number): void {
 async function runScenario(): Promise<void> {
   const order = selected.value
   if (!order?.paymentRequestId || running.value) return
+  // 场景只影响开发 MOCK 渠道；生产关闭该页面和对应后端注册，不能作为财务操作入口。
   if (scenario.value === 'LATE_NOTIFICATION' && !paidAt.value) {
     errorMessage.value = '延迟通知场景需要填写渠道 paidAt。'
     return

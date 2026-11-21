@@ -29,6 +29,10 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
+/**
+ * 播放授权与进度事实。进度只接受客户端 position，完成判定使用播放会话固化的服务端时长；
+ * 首次完成在同一用户行锁内递增 completion_event_sequence，完成事实和 outbox 同事务写入。
+ */
 @Service
 public class LearningPlaybackService {
 
@@ -73,6 +77,7 @@ public class LearningPlaybackService {
 
     public ProgressResponse updateProgress(long userId, long lessonId, ProgressRequest request) {
         LessonMetadataResponse metadata = requirePlayable(lessonId);
+        // 播放会话把用户、小节、媒体和目录版本绑定在一起，换视频后旧会话直接失效。
         PlaySessionCheckResponse session = courseClient.check(userId, request.playSessionId(), lessonId);
         if (!session.allowed() || !metadata.courseId().equals(session.courseId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "播放会话无效或已过期");
@@ -107,6 +112,7 @@ public class LearningPlaybackService {
                 .eq(LessonProgress::getUserId, userId)
                 .eq(LessonProgress::getLessonId, metadata.lessonId()));
         boolean wasCompleted = progress != null && Boolean.TRUE.equals(progress.getCompleted());
+        // 严格超过 50% 才算完成；完成一旦成立不可回退。
         boolean nowCompleted = wasCompleted || position * 2 > duration;
         LocalDateTime completedAt = progress == null ? null : progress.getCompletedAt();
         Long completionSequence = progress == null ? null : progress.getCompletionSequence();
@@ -157,6 +163,7 @@ public class LearningPlaybackService {
     }
 
     private void writeCompletion(long userId, LessonMetadataResponse metadata, long sequence, LocalDateTime now) {
+        // 业务日期按 Asia/Shanghai 归属，消费者跨月处理也不会把积分算到处理月。
         Instant occurredAt = now.toInstant(ZoneOffset.UTC);
         LocalDate businessDate = now.atZone(ZoneOffset.UTC).withZoneSameInstant(SHANGHAI).toLocalDate();
         String payload = "{\"userId\":\"" + userId

@@ -14,6 +14,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 消费 learning 的 grant 回执，回填订单课程来源并结束 fulfillment；重复回执幂等。
+ */
 @Component
 @ConditionalOnProperty(name = "app.outbox.transport", havingValue = "rabbit")
 public class OrderGrantListener {

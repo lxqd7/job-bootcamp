@@ -35,6 +35,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 课程/章节/小节的写模型。上架课程的任何有效目录变更都会递增 catalog_version
+ * 并发布不可变版本；删除只做逻辑删除，历史订单和学习记录仍可引用旧小节。
+ */
 @Service
 public class CourseService {
 
@@ -231,6 +235,7 @@ public class CourseService {
         }
         Course saved = courseMapper.selectById(id);
         if (ONLINE.equals(saved.getStatus())) {
+            // 已上架课程的改价/改目录立即生成新版本，并触发关联路线重算校验。
             courseVersionService.publish(saved);
             routeService.refreshRoutesForCourse(id);
         }
@@ -240,6 +245,7 @@ public class CourseService {
     @Transactional
     public AdminCourseItem publish(Long id, Long revision) {
         Course course = requireCourse(id);
+        // 付费课发布必须有可播放媒体；免费课允许先发布再补视频。
         if (Boolean.FALSE.equals(course.getIsFree())) {
             List<Long> mediaIds = lessonMapper.selectList(Wrappers.<Lesson>lambdaQuery()
                             .eq(Lesson::getCourseId, id)
@@ -435,6 +441,7 @@ public class CourseService {
                 .eq(Course::getId, courseId));
         Course course = courseMapper.selectById(courseId);
         if (course != null && ONLINE.equals(course.getStatus())) {
+            // 线上目录变更立即发布快照，再让路线重新校验分摊；失败由外层事务整体回滚。
             courseVersionService.publish(course);
             routeService.refreshRoutesForCourse(courseId);
         }

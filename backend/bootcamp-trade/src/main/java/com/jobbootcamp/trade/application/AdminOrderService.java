@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 管理端脱敏订单列表；只读取业务状态和支付单 ID，不提供改金额或改状态能力。
+ */
 @Service
 public class AdminOrderService {
 

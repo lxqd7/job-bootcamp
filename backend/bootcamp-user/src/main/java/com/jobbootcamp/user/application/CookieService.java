@@ -11,6 +11,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
+/**
+ * 学生端与管理端使用独立的 refresh/CSRF Cookie 名，避免同一浏览器登录两端时互相覆盖。
+ * refresh Cookie 仅发送到 /api/v1/auth 且 HttpOnly；CSRF Cookie 由前端读取后放入请求头。
+ */
 @Component
 public class CookieService {
 

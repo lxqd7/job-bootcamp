@@ -21,6 +21,10 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 支付单与关闭流程。支付单按 order/channel 复用；关闭意图先落库，
+ * 只有渠道确认关闭后才释放 pending_course，未知状态保留 CLOSING 交给重试任务。
+ */
 @Service
 public class PaymentService {
 

@@ -18,6 +18,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 月榜投影。Redis ZSet 用负分实现同分时 userId 升序；缓存带 MySQL revision，
+ * 读失败或数据缺失时回退 MySQL，缓存只做加速，不作为积分事实来源。
+ */
 @Service
 public class BoardService {
 

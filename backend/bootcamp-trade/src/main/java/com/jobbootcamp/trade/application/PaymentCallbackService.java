@@ -37,6 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 支付回调处理器。先验签，再用回执编号/渠道流水去重，最后按渠道 paidAt 判断有效付款窗口；
+ * 订单 PAID 与学习发权分离，有效付款只写支付事实和 outbox，系统退回只处理真实额外收款。
+ */
 @Service
 public class PaymentCallbackService {
 
@@ -186,6 +190,7 @@ public class PaymentCallbackService {
             orderMapper.markPaid(order.getId(), paidAt, sequence, now);
             pendingCourseMapper.deleteByOrderId(order.getId());
             requestMapper.updateState(request.getId(), "CLOSED", now);
+            // 注意这里只写“已付款”事实和 outbox；学习来源由异步消费者建立，fulfillment 留在 PENDING。
             insertPaymentConfirmedOutbox(order, payment, paidAt, now);
         } else {
             if (order != null && ("WAIT_PAY".equals(order.getState()) || "CLOSING".equals(order.getState()))) {
@@ -210,10 +215,12 @@ public class PaymentCallbackService {
         if (order == null) {
             return false;
         }
+        // 已支付订单的再次收款不是主收款，不能覆盖原订单；CREATING 尚未建立支付资格。
         if ("PAID".equals(order.getState()) || "CREATING".equals(order.getState())
                 || "CREATE_FAILED".equals(order.getState()) || "RECONCILING".equals(order.getState())) {
             return false;
         }
+        // 时间边界使用渠道事实 paidAt，不能用回调到达时间；恰好等于截止时间视为无效。
         if (!paidAt.isBefore(order.getExpiresAt())) {
             return false;
         }

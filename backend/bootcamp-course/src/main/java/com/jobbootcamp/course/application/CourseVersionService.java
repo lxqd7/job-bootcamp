@@ -19,6 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 只追加课程版本快照，不修改历史版本；版本号由当前最大号递增，供订单/路线引用。
+ */
 @Service
 public class CourseVersionService {
 

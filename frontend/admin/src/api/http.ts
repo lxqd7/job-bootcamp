@@ -32,6 +32,7 @@ http.interceptors.response.use(
     const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
     const status = error.response?.status
     const url = original?.url ?? ''
+    // 只重试一次 401；认证接口自身失败不递归刷新。
     const isAuthCall = url.includes('/api/v1/auth/')
     if (status === 401 && original && !original._retried && !isAuthCall && unauthorizedHandler) {
       original._retried = true

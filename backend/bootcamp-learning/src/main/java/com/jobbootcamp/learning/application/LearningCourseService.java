@@ -14,6 +14,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 学习页目录与进度汇总；总/完成只统计课程服务当前活动小节，避免删除目录后出现超过 100%。
+ */
 @Service
 public class LearningCourseService {
 

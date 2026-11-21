@@ -18,6 +18,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * 本人资料与权限快照。资料更新只允许昵称/头像，角色和权限始终由服务端按账号读取。
+ */
 @Service
 public class ProfileService {
 

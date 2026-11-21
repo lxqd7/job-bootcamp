@@ -33,6 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 订单写模型。下单只信服务端报价快照，创建时重取商品/权益并重算 hash；
+ * 同一用户同课程用 pending_course 占锁，request_key 唯一键和 api_idempotency 共同保证重试不重复建单。
+ */
 @Service
 public class OrderService {
 
@@ -131,6 +135,7 @@ public class OrderService {
     }
 
     public void markGranted(Long orderId, Long userId, Long sourceId, List<GrantAck> grants) {
+        // learning 的 grant 回执只更新归因字段；全部课程都有 source 才把 fulfillment 置 DONE。
         transactionTemplate.executeWithoutResult(status -> {
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             TradeOrder order = orderMapper.selectForUpdate(orderId);
@@ -157,6 +162,7 @@ public class OrderService {
     private OrderResponse createInTransaction(Long userId, String requestKey, String requestHash,
                                               CreateOrderRequest request) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        // 先锁用户交易守卫，再检查待付锁，避免同一用户两个不同请求并发卖同一课程。
         guardMapper.ensure(userId, now);
         guardMapper.lock(userId);
 
@@ -187,6 +193,7 @@ public class OrderService {
 
         ProductSnapshotResponse snapshot = courseClient.courseSnapshot(quote.getProductId());
         String currentSnapshotHash = QuoteHasher.snapshotHash(snapshot);
+        // 报价只是预览：成交前必须用当前商品/价格重算，任何变化都不能静默沿用旧金额。
         String currentQuoteHash = QuoteHasher.quoteHash(snapshot, quote.getTotalCent(), quote.getCreditCent(),
                 quote.getDiscountCent(), quote.getPayableCent(), "NONE");
         if (!snapshot.version().equals(quote.getProductVersion())

@@ -20,6 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 5 分钟报价。商品、价格、权益和金额全部来自服务端快照，quoteHash 是用户确认内容的指纹；
+ * 报价不占券、不占权益，真正下单时再重新校验。
+ */
 @Service
 public class QuoteService {
 

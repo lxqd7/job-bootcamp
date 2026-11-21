@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * 消费学习首次完成事件。按 completionEventSequence 连续推进，缺号先向学习服务补洞；
+ * 补洞返回空或仍有缺口时抛异常且不推进游标，避免后续积分被静默跳过。
+ */
 @Service
 public class LessonCompletionService {
 

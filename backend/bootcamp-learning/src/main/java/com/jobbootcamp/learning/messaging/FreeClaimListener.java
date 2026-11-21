@@ -19,6 +19,9 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 消费课程免费领取受理事件；授予完成后回传 sourceId，发送失败由 RabbitMQ 重投。
+ */
 @Component
 @ConditionalOnProperty(name = "app.outbox.transport", havingValue = "rabbit")
 public class FreeClaimListener {

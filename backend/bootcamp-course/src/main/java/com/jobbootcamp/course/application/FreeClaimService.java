@@ -22,6 +22,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
+/**
+ * 免费领取的受理端。课程行锁保证“当时是否免费”的判断与受理顺序一致；
+ * 领取票据先落库再写 outbox，学习侧只消费已持久化的事实，重复请求返回原票据。
+ */
 @Service
 public class FreeClaimService {
 
@@ -54,6 +58,7 @@ public class FreeClaimService {
     }
 
     private FreeClaimTicket claimInTransaction(long userId, long courseId) {
+        // 与改价操作串行化，确保“领取时免费”在同一课程版本上判定。
         Course course = courseMapper.selectForUpdate(courseId);
         if (course == null || !"ONLINE".equals(course.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "课程不存在或未上架");
@@ -86,6 +91,7 @@ public class FreeClaimService {
         ticket.setUpdatedAt(now);
         ticket.setRevision(0L);
         ticketMapper.insert(ticket);
+        // acceptedAt 是后续学习授予和积分的业务时间，不能用消费者处理时间替代。
         writeClaimEvent(ticket, now);
         return ticket;
     }

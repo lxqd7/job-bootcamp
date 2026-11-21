@@ -17,6 +17,10 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * 退款通道。当前只生成 SYSTEM_RETURN：每笔额外/过期收款最多一个退款单，
+ * MOCK 渠道立即完成；S09 会复用同一模型扩展用户主动退款。
+ */
 @Service
 public class RefundService {
 

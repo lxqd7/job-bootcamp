@@ -11,6 +11,10 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * 本地 DEMO 媒体适配器。路径必须解析在 demo-root 内；播放地址带 HMAC 签名和过期时间，
+ * 仅用于演示，不代表真实 VOD 授权。
+ */
 @Component
 public class DemoMediaAdapter implements MediaPort {
 

@@ -20,6 +20,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 分类树以闭包表支持子树检索。任何父子关系变更后重建闭包，避免只更新直接父子导致后代丢失。
+ */
 @Service
 public class CategoryService {
 

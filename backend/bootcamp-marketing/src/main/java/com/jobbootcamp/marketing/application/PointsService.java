@@ -39,6 +39,10 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 积分账本。余额、债务和月榜分只通过账本变动；业务键/类型唯一保证重复事件不双记，
+ * 业务日期按 Asia/Shanghai 归属，日限额和连续签到都以该日期为准。
+ */
 @Service
 public class PointsService {
 
@@ -218,6 +222,7 @@ public class PointsService {
     private PointsAwardResult applyReward(PointsAccount account, long userId, String type,
                                            String businessKey, int awarded, LocalDate businessDate,
                                            Instant occurredAt, String resultCode, LocalDateTime nowUtc) {
+        // businessMonth 取发生时间归属月；延迟消费或跨月重放仍记到原业务月。
         String businessMonth = YearMonth.from(businessDate).toString();
         LocalDateTime occurredUtc = LocalDateTime.ofInstant(occurredAt, ZoneOffset.UTC);
         long availableBefore = account.getAvailable();
@@ -239,6 +244,7 @@ public class PointsService {
         ledger.setRewardPoints((long) awarded);
         ledger.setBalanceDelta(available - availableBefore);
         ledger.setDebtDelta(debt - debtBefore);
+        // rankDelta 记录奖励分，不因债务抵扣而减少；月榜只反映获得分。
         ledger.setRankDelta((long) awarded);
         ledger.setBalanceAfter(available);
         ledger.setDebtAfter(debt);

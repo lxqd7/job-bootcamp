@@ -16,6 +16,7 @@ const CHANNEL_NAME = 'bc_admin_auth'
 const LOCK_NAME = 'bc_admin_refresh'
 const AUTH_BASE = '/api/v1/auth'
 
+// 管理端与学生端使用不同 Cookie/Channel 名；access token 只在内存，刷新由 Web Locks 串行化。
 const accessToken = ref('')
 const me = ref<MeResponse | null>(null)
 const clearedListeners = new Set<() => void>()

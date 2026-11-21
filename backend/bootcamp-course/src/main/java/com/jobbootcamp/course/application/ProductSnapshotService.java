@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * 交易报价/订单使用的商品快照：只返回当前活动小节和媒体时长，不返回草稿或已删除目录。
+ */
 @Service
 public class ProductSnapshotService {
 

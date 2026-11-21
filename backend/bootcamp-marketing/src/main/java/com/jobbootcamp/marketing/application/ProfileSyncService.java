@@ -10,6 +10,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
+/**
+ * 把 user 服务的昵称快照同步到营销库；只用于榜单展示，失败保留旧快照，不阻塞榜单读取。
+ */
 @Service
 public class ProfileSyncService {
 

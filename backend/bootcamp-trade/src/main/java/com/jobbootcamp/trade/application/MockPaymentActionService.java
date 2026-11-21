@@ -14,6 +14,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
+/**
+ * 学生端“模拟支付”动作：只构造固定成功回调和当前渠道时间，不能选择失败/延迟结果；
+ * 仅在 MOCK 模式注册，生产真实渠道不会暴露该入口。
+ */
 @Service
 @ConditionalOnProperty(name = "app.payment.mode", havingValue = "mock", matchIfMissing = true)
 public class MockPaymentActionService {

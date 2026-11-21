@@ -16,6 +16,8 @@ const CHANNEL_NAME = 'bc_student_auth'
 const LOCK_NAME = 'bc_student_refresh'
 const AUTH_BASE = '/api/v1/auth'
 
+// access token 只留内存；refresh 在 HttpOnly Cookie，JS 只读 CSRF Cookie。
+// Web Locks 让同一浏览器只发一次刷新，BroadcastChannel 把新 token 同步给其他标签页。
 const accessToken = ref('')
 const me = ref<MeResponse | null>(null)
 const clearedListeners = new Set<() => void>()

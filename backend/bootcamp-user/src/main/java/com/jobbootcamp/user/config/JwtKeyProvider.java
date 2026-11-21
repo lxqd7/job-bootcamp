@@ -20,6 +20,10 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
+/**
+ * 只从配置路径读取 RS256 密钥；本地缺失时最多自动生成一次开发密钥。
+ * 生产必须提供 JWT_PRIVATE_KEY_PATH/JWT_PUBLIC_KEY_PATH 并关闭自动生成。
+ */
 @Component
 public class JwtKeyProvider {
 

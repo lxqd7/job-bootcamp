@@ -14,6 +14,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 课程 outbox 投递器：先租约领取，再在事务外发送，失败按退避重试；
+ * 事件不会被删除，超过最大尝试次数进入 NEEDS_ATTENTION 供人工处理。
+ */
 @Service
 public class OutboxRelay {
 

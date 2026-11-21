@@ -5,6 +5,9 @@ import org.slf4j.MDC;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+/**
+ * 请求链路 ID 的唯一来源。入站值只接受 32 位小写十六进制，避免把任意请求头写入日志。
+ */
 public final class TraceContext {
 
     public static final String MDC_KEY = "traceId";

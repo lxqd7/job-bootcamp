@@ -25,6 +25,7 @@ const secondsLeft = computed(() =>
 const expired = computed(() => Boolean(quote.value && secondsLeft.value <= 0))
 
 function freshKey(): string {
+  // 同一次确认重试必须复用；重新报价后才换新键，避免把不同报价的请求误认成同一单。
   const cryptoApi = globalThis.crypto
   return cryptoApi && 'randomUUID' in cryptoApi
     ? cryptoApi.randomUUID()

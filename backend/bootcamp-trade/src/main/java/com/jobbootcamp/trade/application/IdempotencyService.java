@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+/**
+ * 创建订单幂等协调。数据库唯一键决定唯一赢家，其他并发请求等待并复用同一资源；
+ * 失败记录可被重新领取，完成记录只返回原订单 ID。
+ */
 @Service
 public class IdempotencyService {
 

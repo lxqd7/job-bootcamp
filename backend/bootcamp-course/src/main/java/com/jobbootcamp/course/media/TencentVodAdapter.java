@@ -13,6 +13,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
+/**
+ * 腾讯云 VOD 适配器；只在 VOD_ENABLED=true 时注册。无凭据时不伪装可用，验证返回明确错误。
+ */
 @Component
 @ConditionalOnProperty(name = "app.media.vod.enabled", havingValue = "true")
 public class TencentVodAdapter implements MediaPort {

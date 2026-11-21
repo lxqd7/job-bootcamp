@@ -51,6 +51,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * 媒体导入与播放授权。导入以 batchId/inputHash 幂等，导入映射保留旧 ID 到新媒体的关系；
+ * 播放会话记录签发时的时长和目录版本，后续目录/视频变化不会改变旧会话的完成判定。
+ */
 @Service
 public class MediaService {
 
@@ -103,6 +107,7 @@ public class MediaService {
 
     @Transactional
     public MediaImportPreviewResponse previewImport(MediaImportPreviewRequest request) {
+        // 同一 batchId 只允许同一份输入重放，输入变化必须换新 batchId，避免旧计划被覆盖。
         String inputJson = SimpleJson.write(Map.of(
                 "batchId", request.batchId(),
                 "items", request.items().stream().map(item -> {
@@ -163,6 +168,7 @@ public class MediaService {
 
     @Transactional
     public MediaImportResponse importMedia(MediaImportRequest request) {
+        // 导入阶段再次校验预览 hash，并复用 import 操作键，重复提交不会重复创建媒体。
         String previewKey = operationKey("preview", request.batchId());
         MediaOperation preview = operationMapper.selectOne(Wrappers.<MediaOperation>lambdaQuery()
                 .eq(MediaOperation::getOperationKey, previewKey));
@@ -240,6 +246,7 @@ public class MediaService {
         if (!demoImportEnabled) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "当前环境未启用 DEMO 媒体导入");
         }
+        // resolve 必须留在 DEMO_MEDIA_ROOT 内，拒绝 ../ 或绝对路径穿越。
         var path = demoMediaAdapter.resolve(request.relativePath());
         if (path == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "相对路径不能离开 DEMO_MEDIA_ROOT");
@@ -346,6 +353,7 @@ public class MediaService {
         session.setIssuedAt(LocalDateTime.now(ZoneOffset.UTC));
         session.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));
         session.setMode("LEARN");
+        // 会话快照是后续进度完成判定的依据，不能在下一次目录/视频变更时回填新值。
         playSessionMapper.insert(session);
         return mediaPort(asset).authorize(mediaRef(asset), userId, authSessionId, playSessionId, expiresAt);
     }
@@ -353,6 +361,7 @@ public class MediaService {
     @Transactional
     public MediaItemView detach(Long id, Long revision) {
         MediaAsset asset = requireMedia(id);
+        // 解除引用只影响后续授权，不删除云资源；历史订单/权限仍可能引用该媒体。
         int updated = mediaMapper.update(null, Wrappers.<MediaAsset>lambdaUpdate()
                 .set(MediaAsset::getDetached, true)
                 .set(MediaAsset::getUpdatedAt, utcNow())
@@ -408,6 +417,7 @@ public class MediaService {
         if ("DEMO".equals(asset.getProvider())) {
             return demoMediaAdapter;
         }
+        // VOD 未配置时显式报 503，不能把 DEMO 地址伪装成真实 VOD 播放。
         TencentVodAdapter adapter = tencentVodAdapterProvider.getIfAvailable();
         if (adapter == null) {
             throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "VOD 未配置，无法播放或校验该媒体");

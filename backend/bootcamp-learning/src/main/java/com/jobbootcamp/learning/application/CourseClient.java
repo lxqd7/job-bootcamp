@@ -18,6 +18,9 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+/**
+ * 调用课程内部接口；每个调用都签发短期 HMAC 服务凭据，凭据绑定 audience 和 operation。
+ */
 @Component
 public class CourseClient {
 

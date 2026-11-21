@@ -27,6 +27,7 @@ async function load(): Promise<void> {
   try {
     order.value = await loadOrder(orderId.value)
     if (order.value.state === 'WAIT_PAY') {
+      // 支付页只创建一次渠道支付单；重复刷新复用同一 payment_request。
       payment.value = await initiatePayment(orderId.value)
     } else if (order.value.state === 'PAID' && order.value.fulfillmentState !== 'DONE') {
       startPolling()
@@ -41,6 +42,7 @@ async function load(): Promise<void> {
 function startPolling(): void {
   stopPolling()
   pollCount = 0
+  // 支付成功只代表已收款；继续轮询到 learning 回执 DONE 才显示权益已开通。
   poller = setInterval(async () => {
     pollCount++
     try {

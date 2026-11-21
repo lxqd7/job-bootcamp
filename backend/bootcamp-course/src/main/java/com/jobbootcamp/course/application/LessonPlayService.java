@@ -27,6 +27,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 课程目录/小节元数据与播放会话。元数据只返回当前有效小节和媒体时长，
+ * 播放会话由 MediaService 固化时长/目录版本，进度侧不能信任客户端时长。
+ */
 @Service
 public class LessonPlayService {
 
@@ -129,6 +133,7 @@ public class LessonPlayService {
     }
 
     public PlaySessionCheckResponse check(Long userId, String playSessionId, Long lessonId) {
+        // 只认签发时属于该用户、该小节的 LEARN 会话；过期或换视频后旧会话直接失效。
         PlaySession session = playSessionMapper.selectById(playSessionId);
         if (session == null
                 || !session.getUserId().equals(userId)

@@ -24,6 +24,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 消费 trade 的支付成功事件，按订单建立 COURSE_ORDER 来源并回传 grant 明细。
+ * 授权与回传 ack 都是幂等的；ack 发送失败会抛异常让 RabbitMQ 重投，不能静默丢开通结果。
+ */
 @Component
 @ConditionalOnProperty(name = "app.outbox.transport", havingValue = "rabbit")
 public class OrderPaidListener {
@@ -64,6 +68,7 @@ public class OrderPaidListener {
     }
 
     private LocalDateTime parsePaidAt(String text) {
+        // 兼容历史事件的时间格式：新事件带 Z，旧事件可能是 LocalDateTime 字符串。
         try {
             return LocalDateTime.ofInstant(Instant.parse(text), ZoneOffset.UTC);
         } catch (RuntimeException e) {

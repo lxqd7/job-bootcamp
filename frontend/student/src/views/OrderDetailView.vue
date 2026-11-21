@@ -47,6 +47,7 @@ async function load(): Promise<void> {
 
 function startPolling(): void {
   if (poller) return
+  // 已付款但学习服务尚未回执时轮询；到达 DONE 立即停止，避免无意义请求。
   poller = setInterval(async () => {
     try {
       const latest = await loadOrder(orderId.value)

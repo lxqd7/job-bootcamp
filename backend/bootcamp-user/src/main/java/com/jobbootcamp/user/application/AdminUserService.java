@@ -27,6 +27,10 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 管理员账号管理只允许教师/管理员两类角色，并禁止操作者禁用自己或修改自己的角色。
+ * 禁用或改角色会递增 token_version 并撤销该账号现有会话，防止旧权限继续生效。
+ */
 @Service
 public class AdminUserService {
 
