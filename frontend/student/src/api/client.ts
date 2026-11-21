@@ -9,6 +9,7 @@ import type {
   CourseSummary,
   LearningCourse,
   MyCourseItem,
+  MyRouteItem,
   OrderResponse,
   PageResponse,
   PaymentInitiateResponse,
@@ -137,6 +138,16 @@ export async function loadMyCourses(page = 1, pageSize = 100): Promise<PageRespo
   return data.data
 }
 
+export async function loadMyRoutes(page = 1, pageSize = 100): Promise<PageResponse<MyRouteItem>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<MyRouteItem>>>('/api/v1/me/routes', {
+    params: { page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '我的路线接口返回异常')
+  }
+  return data.data
+}
+
 export async function loadLearningCourse(courseId: string): Promise<LearningCourse> {
   const { data } = await http.get<ApiEnvelope<LearningCourse>>(`/api/v1/learning/courses/${courseId}`)
   if (data.code !== 'OK') {
@@ -170,10 +181,13 @@ export async function reportProgress(
   return data.data
 }
 
-export async function createQuote(courseId: string): Promise<TradeQuote> {
+export async function createQuote(
+  productType: 'COURSE' | 'ROUTE',
+  productId: string
+): Promise<TradeQuote> {
   const { data } = await http.post<ApiEnvelope<TradeQuote>>('/api/v1/trade/quotes', {
-    productType: 'COURSE',
-    productId: Number(courseId),
+    productType,
+    productId: Number(productId),
     couponSelection: { mode: 'NONE', ids: [] }
   })
   if (data.code !== 'OK') {

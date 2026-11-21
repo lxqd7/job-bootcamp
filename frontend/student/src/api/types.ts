@@ -186,6 +186,13 @@ export interface MyCourseItem {
   grantedAt: string
 }
 
+export interface MyRouteItem {
+  routeId: string
+  sourceId: string
+  futureCourses: boolean
+  acquiredAt: string
+}
+
 export interface PlayAuthorization {
   provider: string
   playSessionId: string

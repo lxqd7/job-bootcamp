@@ -47,7 +47,7 @@ onMounted(load)
     <section class="head">
       <p class="stage">路线套餐</p>
       <h1>学习路线</h1>
-      <p class="lead">路线由多门课程组成，价格低于单课之和。购买、已有课程抵扣与福利资格会在 S07 接入。</p>
+      <p class="lead">路线由多门课程组成，价格低于单课之和。已有课程会在确认页按套餐分摊价自动抵扣；购买后获得路线资格和后续新增课程权益。</p>
     </section>
 
     <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>

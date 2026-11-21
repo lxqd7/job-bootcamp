@@ -109,6 +109,7 @@ public class QuoteService {
 
         List<QuoteResponse.CourseLine> lines = new ArrayList<>();
         long credit = 0;
+        List<String> warnings = new ArrayList<>();
         for (RouteSnapshotResponse.Member member : route.members()) {
             long allocated = member.free() ? 0
                     : (member.allocatedCent() == null ? 0 : member.allocatedCent());
@@ -123,6 +124,10 @@ public class QuoteService {
                     source == null ? null : source.sourceGrantId(),
                     source == null ? null : source.sourceOrderId(),
                     allocated - lineCredit));
+            if (source != null && source.sourceOrderId() != null) {
+                warnings.add("课程 " + member.courseId() + " 使用订单 "
+                        + source.sourceOrderId() + " 的来源，退款该来源可能影响本路线权益");
+            }
         }
         long total = route.priceCent();
         long payable = total - credit;
@@ -141,7 +146,7 @@ public class QuoteService {
         String quoteHash = QuoteHasher.routeQuoteHash(route, lines, total, credit, 0, payable, couponMode);
         QuoteResponse response = new QuoteResponse(quoteId, "READY", expiresAt, quoteHash,
                 new QuoteResponse.Product(productType, route.routeId(), route.title(), route.versionNo()),
-                lines, List.of(), total, credit, 0, payable, List.of());
+                lines, List.of(), total, credit, 0, payable, warnings);
 
         PriceQuote quote = new PriceQuote();
         quote.setQuoteId(quoteId);
@@ -261,7 +266,7 @@ public class QuoteService {
             return new QuoteResponse(cached.quoteId(), quote.getStatus(), quote.getExpiresAt(),
                     cached.quoteHash(), cached.product(), cached.courses(), List.of(),
                     cached.totalCent(), cached.creditCent(), cached.discountCent(), cached.payableCent(),
-                    List.of());
+                    cached.refundDependencyWarnings());
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.DATA_INTEGRITY, "路线报价快照损坏");
         }
@@ -311,12 +316,13 @@ public class QuoteService {
             long totalCent,
             long creditCent,
             long discountCent,
-            long payableCent
+            long payableCent,
+            List<String> refundDependencyWarnings
     ) {
         private static RouteQuoteCache from(QuoteResponse response) {
             return new RouteQuoteCache(response.quoteId(), response.quoteHash(), response.product(),
                     response.courses(), response.totalCent(), response.creditCent(),
-                    response.discountCent(), response.payableCent());
+                    response.discountCent(), response.payableCent(), response.refundDependencyWarnings());
         }
     }
 }

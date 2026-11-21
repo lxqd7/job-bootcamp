@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppShell from '../components/AppShell.vue'
-import { describeError, loadRoute } from '../api/client'
+import { describeError, loadMyRoutes, loadRoute } from '../api/client'
 import type { RouteDetail } from '../api/types'
 
 const routeParam = useRoute()
 const detail = ref<RouteDetail | null>(null)
+const ownedRoute = ref(false)
 const loading = ref(true)
 const errorMessage = ref('')
+
+const checkoutLink = computed(() => ({
+  name: 'checkout',
+  query: { productType: 'ROUTE', productId: detail.value?.id ?? '' }
+}))
 
 function money(value: number): string {
   return `¥${(value / 100).toFixed(2)}`
@@ -17,6 +23,12 @@ function money(value: number): string {
 onMounted(async () => {
   try {
     detail.value = await loadRoute(String(routeParam.params.id))
+    try {
+      const mine = await loadMyRoutes(1, 100)
+      ownedRoute.value = mine.items.some(item => item.routeId === detail.value?.id)
+    } catch {
+      // 路线资格加载失败不阻塞公共路线详情
+    }
   } catch (error) {
     errorMessage.value = describeError(error)
   } finally {
@@ -40,7 +52,12 @@ onMounted(async () => {
         <p class="facts">
           <span class="price">{{ money(detail.priceCent) }}</span>
           <span>{{ detail.members.length }} 门课程</span>
+          <span v-if="ownedRoute" class="owned">已拥有路线资格</span>
         </p>
+        <div v-if="detail.status === 'ONLINE'" class="actions">
+          <RouterLink v-if="!ownedRoute" class="btn btn-primary" :to="checkoutLink">购买路线</RouterLink>
+          <RouterLink class="btn" to="/me/routes">我的路线</RouterLink>
+        </div>
       </section>
 
       <section class="members">
@@ -66,7 +83,7 @@ onMounted(async () => {
           </table>
         </div>
         <p class="muted small">
-          分摊是套餐内部金额拆分，用于已有课程抵扣和退款计算；实际抵扣与购买在 S07 接入。
+          分摊是套餐内部金额拆分，用于已有课程抵扣和退款计算；实际抵扣、来源和退款依赖在确认页展示。
         </p>
       </section>
     </template>
@@ -110,6 +127,17 @@ h1 {
 .price {
   color: var(--ink);
   font-weight: 600;
+}
+
+.owned {
+  color: var(--pine);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 .members {
