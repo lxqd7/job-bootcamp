@@ -19,7 +19,7 @@ try {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
     $pidFile = Join-Path $runDir 'pids.json'
 
-    # PID 文件是本脚本唯一的停止依据；只清理由自己启动且仍存活的进程，不按端口杀进程。
+    # The PID file is the only stop authority; never kill by port.
     if (Test-Path $pidFile) {
         $existingJson = Get-Content $pidFile -Raw | ConvertFrom-Json
         $existing = @($existingJson | ForEach-Object { $_ })

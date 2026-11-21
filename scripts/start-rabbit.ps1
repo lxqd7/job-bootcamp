@@ -5,7 +5,7 @@ param()
 
 $root = Get-ProjectRoot
 Initialize-LocalEnv
-# 本机便携 Rabbit 的数据目录隔离在项目内，避免污染系统 RabbitMQ 或其他项目实例。
+# Keep the portable broker data inside the project, isolated from other RabbitMQ instances.
 $rabbitBase = Join-Path $root '.local-run\rabbitmq'
 New-Item -ItemType Directory -Force -Path $rabbitBase | Out-Null
 

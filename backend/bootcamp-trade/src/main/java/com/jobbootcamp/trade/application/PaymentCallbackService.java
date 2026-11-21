@@ -181,6 +181,9 @@ public class PaymentCallbackService {
         paymentMapper.insert(payment);
 
         TradeOrder order = orderMapper.selectForUpdate(request.getOrderId());
+        if (order != null && "ROUTE".equals(order.getProductType())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "路线支付处理将在 S07-b 开放");
+        }
         boolean valid = isValidPayment(order, paidAt);
         Long refundId = null;
         if (valid) {

@@ -1,6 +1,8 @@
 package com.jobbootcamp.trade.application;
 
 import com.jobbootcamp.contracts.internal.ProductSnapshotResponse;
+import com.jobbootcamp.contracts.internal.RouteSnapshotResponse;
+import com.jobbootcamp.trade.domain.dto.QuoteResponse;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -51,6 +53,79 @@ public final class QuoteHasher {
         ids.sort(Long::compareTo);
         root.put("selectedCouponIds", ids);
         return sha256(TradeJson.write(root));
+    }
+
+    public static String routeSnapshotHash(RouteSnapshotResponse snapshot) {
+        return sha256(TradeJson.write(routeRoot(snapshot)));
+    }
+
+    public static String routeQuoteHash(RouteSnapshotResponse snapshot, List<QuoteResponse.CourseLine> lines,
+                                        long totalCent, long creditCent, long discountCent,
+                                        long payableCent, String couponMode) {
+        Map<String, Object> root = routeRoot(snapshot);
+        root.put("couponMode", couponMode);
+        List<Map<String, Object>> lineValues = new ArrayList<>();
+        for (QuoteResponse.CourseLine line : lines) {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("courseId", line.courseId());
+            value.put("unitPriceCent", line.unitPriceCent());
+            value.put("allocatedCent", line.allocatedCent());
+            value.put("creditCent", line.creditCent());
+            value.put("sourceId", line.sourceId());
+            value.put("sourceGrantId", line.sourceGrantId());
+            value.put("sourceOrderId", line.sourceOrderId());
+            value.put("remainingCent", line.remainingCent());
+            lineValues.add(value);
+        }
+        root.put("courses", lineValues);
+        root.put("totalCent", totalCent);
+        root.put("creditCent", creditCent);
+        root.put("discountCent", discountCent);
+        root.put("payableCent", payableCent);
+        return sha256(TradeJson.write(root));
+    }
+
+    private static Map<String, Object> routeRoot(RouteSnapshotResponse snapshot) {
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("type", "ROUTE");
+        root.put("id", snapshot.routeId());
+        root.put("title", snapshot.title());
+        root.put("description", snapshot.description());
+        root.put("versionNo", snapshot.versionNo());
+        root.put("priceCent", snapshot.priceCent());
+        root.put("status", snapshot.status());
+        List<Map<String, Object>> members = new ArrayList<>();
+        if (snapshot.members() != null) {
+            for (RouteSnapshotResponse.Member member : snapshot.members()) {
+                Map<String, Object> value = new LinkedHashMap<>();
+                value.put("courseId", member.courseId());
+                value.put("title", member.title());
+                value.put("courseVersion", member.courseVersion());
+                value.put("epochId", member.epochId());
+                value.put("unitPriceCent", member.unitPriceCent());
+                value.put("allocatedCent", member.allocatedCent());
+                value.put("free", member.free());
+                value.put("categoryId", member.categoryId());
+                value.put("categoryAncestorIds", member.categoryAncestorIds());
+                List<Map<String, Object>> lessons = new ArrayList<>();
+                if (member.lessons() != null) {
+                    for (ProductSnapshotResponse.SnapshotLesson lesson : member.lessons()) {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        row.put("lessonId", lesson.lessonId());
+                        row.put("chapterId", lesson.chapterId());
+                        row.put("title", lesson.title());
+                        row.put("sort", lesson.sort());
+                        row.put("mediaId", lesson.mediaId());
+                        row.put("durationMs", lesson.durationMs());
+                        lessons.add(row);
+                    }
+                }
+                value.put("lessons", lessons);
+                members.add(value);
+            }
+        }
+        root.put("members", members);
+        return root;
     }
 
     public static String sha256(String text) {

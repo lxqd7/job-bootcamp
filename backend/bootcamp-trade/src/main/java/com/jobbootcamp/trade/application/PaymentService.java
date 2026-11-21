@@ -7,6 +7,7 @@ import com.jobbootcamp.trade.domain.PaymentRequest;
 import com.jobbootcamp.trade.domain.TradeOrder;
 import com.jobbootcamp.trade.domain.dto.PaymentInitiateResponse;
 import com.jobbootcamp.trade.domain.dto.PaymentInitiateRequest;
+import com.jobbootcamp.trade.infrastructure.DeductionLinkMapper;
 import com.jobbootcamp.trade.infrastructure.PaymentRequestMapper;
 import com.jobbootcamp.trade.infrastructure.PendingCourseMapper;
 import com.jobbootcamp.trade.infrastructure.TradeOrderMapper;
@@ -32,17 +33,23 @@ public class PaymentService {
     private final PaymentRequestMapper requestMapper;
     private final PendingCourseMapper pendingCourseMapper;
     private final PaymentPort paymentPort;
+    private final LearningClient learningClient;
+    private final DeductionLinkMapper deductionLinkMapper;
     private final TransactionTemplate transactionTemplate;
 
     public PaymentService(TradeOrderMapper orderMapper,
                           PaymentRequestMapper requestMapper,
                           PendingCourseMapper pendingCourseMapper,
                           PaymentPort paymentPort,
+                          LearningClient learningClient,
+                          DeductionLinkMapper deductionLinkMapper,
                           PlatformTransactionManager transactionManager) {
         this.orderMapper = orderMapper;
         this.requestMapper = requestMapper;
         this.pendingCourseMapper = pendingCourseMapper;
         this.paymentPort = paymentPort;
+        this.learningClient = learningClient;
+        this.deductionLinkMapper = deductionLinkMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -61,6 +68,9 @@ public class PaymentService {
             }
             if (!"WAIT_PAY".equals(order.getState())) {
                 throw new BusinessException(ErrorCode.CONFLICT, "订单当前不可支付");
+            }
+            if ("ROUTE".equals(order.getProductType())) {
+                throw new BusinessException(ErrorCode.CONFLICT, "路线支付将在 S07-b 开放");
             }
             if (!order.getExpiresAt().isAfter(now)) {
                 throw new BusinessException(ErrorCode.CONFLICT, "订单已过期，请重新下单");
@@ -195,6 +205,7 @@ public class PaymentService {
                     if (order != null && !"PAID".equals(order.getState())) {
                         orderMapper.markClosed(order.getId(), "CLOSED", now);
                         pendingCourseMapper.deleteByOrderId(order.getId());
+                        releaseRouteHolds(order);
                     }
                     return true;
                 }
@@ -216,6 +227,7 @@ public class PaymentService {
         if (request == null || "CLOSED".equals(request.getState())) {
             orderMapper.markClosed(order.getId(), "CLOSED", now);
             pendingCourseMapper.deleteByOrderId(order.getId());
+            releaseRouteHolds(order);
             return;
         }
         PaymentPort.CloseResult close = paymentPort.close(request);
@@ -223,8 +235,25 @@ public class PaymentService {
             requestMapper.updateState(request.getId(), "CLOSED", now);
             orderMapper.markClosed(order.getId(), "CLOSED", now);
             pendingCourseMapper.deleteByOrderId(order.getId());
+            releaseRouteHolds(order);
         } else {
             requestMapper.updateState(request.getId(), "UNKNOWN", now);
+        }
+    }
+
+    private void releaseRouteHolds(TradeOrder order) {
+        if (!"ROUTE".equals(order.getProductType())) {
+            return;
+        }
+        // hold 与 deduction_link 各自独立清理；学习服务暂时不可用不能阻止交易侧释放依赖边。
+        try {
+            learningClient.releasePurchase(order.getId(), order.getUserId());
+        } catch (RuntimeException ignored) {
+        }
+        try {
+            deductionLinkMapper.updateState(order.getId(), "RESERVED", "RELEASED",
+                    LocalDateTime.now(ZoneOffset.UTC));
+        } catch (RuntimeException ignored) {
         }
     }
 

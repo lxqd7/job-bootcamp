@@ -8,14 +8,21 @@ import com.jobbootcamp.learning.domain.EntitlementSource;
 import com.jobbootcamp.learning.domain.FreeClaimReceipt;
 import com.jobbootcamp.learning.domain.UserGuard;
 import com.jobbootcamp.contracts.internal.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.PurchasePrepareResponse;
+import com.jobbootcamp.contracts.internal.SourceSelectionItem;
+import com.jobbootcamp.contracts.internal.SourceSelectionResponse;
+import com.jobbootcamp.learning.domain.PurchaseHold;
+import com.jobbootcamp.learning.domain.SourceSelectionRow;
 import com.jobbootcamp.learning.domain.dto.MyCourseItem;
 import com.jobbootcamp.learning.domain.dto.MyCourseRow;
 import com.jobbootcamp.learning.domain.dto.MyRouteItem;
 import com.jobbootcamp.learning.domain.dto.PageResponse;
 import com.jobbootcamp.learning.infrastructure.CourseGrantMapper;
+import com.jobbootcamp.learning.infrastructure.CourseSourceMapper;
 import com.jobbootcamp.learning.infrastructure.EntitlementQueryMapper;
 import com.jobbootcamp.learning.infrastructure.EntitlementSourceMapper;
 import com.jobbootcamp.learning.infrastructure.FreeClaimReceiptMapper;
+import com.jobbootcamp.learning.infrastructure.PurchaseHoldMapper;
 import com.jobbootcamp.learning.infrastructure.RouteEntitlementMapper;
 import com.jobbootcamp.learning.infrastructure.UserGuardMapper;
 import org.springframework.stereotype.Service;
@@ -43,6 +50,8 @@ public class EntitlementService {
     private final RouteEntitlementMapper routeMapper;
     private final FreeClaimReceiptMapper receiptMapper;
     private final EntitlementQueryMapper queryMapper;
+    private final CourseSourceMapper sourceSelectionMapper;
+    private final PurchaseHoldMapper purchaseHoldMapper;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate rowTemplate;
 
@@ -52,6 +61,8 @@ public class EntitlementService {
                               RouteEntitlementMapper routeMapper,
                               FreeClaimReceiptMapper receiptMapper,
                               EntitlementQueryMapper queryMapper,
+                              CourseSourceMapper sourceSelectionMapper,
+                              PurchaseHoldMapper purchaseHoldMapper,
                               PlatformTransactionManager transactionManager) {
         this.guardMapper = guardMapper;
         this.sourceMapper = sourceMapper;
@@ -59,6 +70,8 @@ public class EntitlementService {
         this.routeMapper = routeMapper;
         this.receiptMapper = receiptMapper;
         this.queryMapper = queryMapper;
+        this.sourceSelectionMapper = sourceSelectionMapper;
+        this.purchaseHoldMapper = purchaseHoldMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -168,6 +181,83 @@ public class EntitlementService {
         Long sourceId = grantMapper.selectActiveSource(userId, courseId);
         return new AccessCheckResponse(sourceId != null,
                 sourceId == null ? null : String.valueOf(sourceId));
+    }
+
+    /**
+     * 报价只读选择：按课程 grant 的 grantedAt、grantId 最早排序，不建立任何预留。
+     */
+    public SourceSelectionResponse selectSources(Long userId, List<Long> courseIds) {
+        return new SourceSelectionResponse(selectActiveSources(userId, courseIds).values().stream()
+                .map(this::toSourceItem)
+                .toList());
+    }
+
+    /**
+     * 下单预留：在 user_guard 内重新选来源并建立 PURCHASED hold。
+     * 已存在的 hold 不换来源；释放/提交由订单生命周期驱动。
+     */
+    public PurchasePrepareResponse preparePurchase(Long orderId, Long userId, List<Long> courseIds) {
+        if (orderId == null || orderId <= 0 || userId == null || userId <= 0
+                || courseIds == null || courseIds.isEmpty()) {
+            throw new com.jobbootcamp.common.error.BusinessException(
+                    com.jobbootcamp.common.error.ErrorCode.VALIDATION_FAILED, "购买预留参数不合法");
+        }
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        rowTemplate.executeWithoutResult(status -> guardMapper.insertIfAbsent(userId, now));
+        return transactionTemplate.execute(status -> {
+            UserGuard guard = guardMapper.selectForUpdate(userId);
+            List<SourceSelectionRow> rows = sourceSelectionMapper.selectActiveSources(userId, courseIds);
+            Map<Long, SourceSelectionRow> earliest = earliestByCourse(rows);
+            for (SourceSelectionRow row : earliest.values()) {
+                purchaseHoldMapper.insertIfAbsent(orderId, userId, row.getCourseId(),
+                        row.getSourceId(), row.getSourceGrantId(), now);
+            }
+            Map<Long, SourceSelectionRow> bySource = new LinkedHashMap<>();
+            for (SourceSelectionRow row : rows) {
+                bySource.putIfAbsent(row.getSourceId(), row);
+            }
+            List<SourceSelectionItem> holds = purchaseHoldMapper.selectByOrder(orderId).stream()
+                    .map(hold -> toSourceItem(hold, bySource.get(hold.getSourceId())))
+                    .toList();
+            return new PurchasePrepareResponse(orderId, guard.getSequence(), holds);
+        });
+    }
+
+    public void commitPurchase(Long orderId) {
+        purchaseHoldMapper.updateState(orderId, "PREPARED", "COMMITTED", LocalDateTime.now(ZoneOffset.UTC));
+    }
+
+    public void releasePurchase(Long orderId) {
+        purchaseHoldMapper.updateState(orderId, "PREPARED", "RELEASED", LocalDateTime.now(ZoneOffset.UTC));
+    }
+
+    private Map<Long, SourceSelectionRow> selectActiveSources(Long userId, List<Long> courseIds) {
+        if (userId == null || userId <= 0 || courseIds == null || courseIds.isEmpty()) {
+            return Map.of();
+        }
+        return earliestByCourse(sourceSelectionMapper.selectActiveSources(userId, courseIds));
+    }
+
+    private Map<Long, SourceSelectionRow> earliestByCourse(List<SourceSelectionRow> rows) {
+        Map<Long, SourceSelectionRow> earliest = new LinkedHashMap<>();
+        for (SourceSelectionRow row : rows) {
+            earliest.putIfAbsent(row.getCourseId(), row);
+        }
+        return earliest;
+    }
+
+    private SourceSelectionItem toSourceItem(SourceSelectionRow row) {
+        return new SourceSelectionItem(row.getCourseId(), row.getSourceId(), row.getSourceGrantId(),
+                row.getSourceType(), row.getSourceOrderId(),
+                row.getGrantedAt() == null ? null : row.getGrantedAt().toInstant(ZoneOffset.UTC).toString());
+    }
+
+    private SourceSelectionItem toSourceItem(PurchaseHold hold, SourceSelectionRow row) {
+        return new SourceSelectionItem(hold.getCourseId(), hold.getSourceId(), hold.getSourceGrantId(),
+                row == null ? null : row.getSourceType(),
+                row == null ? null : row.getSourceOrderId(),
+                row == null || row.getGrantedAt() == null ? null
+                        : row.getGrantedAt().toInstant(ZoneOffset.UTC).toString());
     }
 
     public PurchaseGrantResult grantPurchase(Long orderId, Long userId, LocalDateTime paidAt,

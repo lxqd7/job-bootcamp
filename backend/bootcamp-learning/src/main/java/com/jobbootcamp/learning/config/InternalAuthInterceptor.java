@@ -27,6 +27,14 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
                 ? "free-claims:create"
                 : request.getRequestURI().startsWith("/int/v1/completion-events")
                 ? "completion-events:read"
+                : request.getRequestURI().startsWith("/int/v1/entitlements/sources")
+                ? "entitlements:select"
+                : request.getRequestURI().startsWith("/int/v1/purchases/prepare")
+                ? "purchases:prepare"
+                : request.getRequestURI().startsWith("/int/v1/purchases/commit")
+                ? "purchases:commit"
+                : request.getRequestURI().startsWith("/int/v1/purchases/release")
+                ? "purchases:release"
                 : "access:check";
         try {
             InternalTokenCodec.verify(secret, request.getHeader(SERVICE_TOKEN_HEADER),

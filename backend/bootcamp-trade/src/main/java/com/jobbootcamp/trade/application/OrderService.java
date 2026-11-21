@@ -8,12 +8,19 @@ import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.common.web.ErrorData;
 import com.jobbootcamp.contracts.internal.AccessCheckResponse;
 import com.jobbootcamp.contracts.internal.ProductSnapshotResponse;
+import com.jobbootcamp.contracts.internal.PurchasePrepareResponse;
+import com.jobbootcamp.contracts.internal.RouteSnapshotResponse;
+import com.jobbootcamp.contracts.internal.SourceSelectionItem;
+import com.jobbootcamp.contracts.internal.SourceSelectionResponse;
+import com.jobbootcamp.trade.domain.DeductionLink;
 import com.jobbootcamp.trade.domain.OrderCourse;
 import com.jobbootcamp.trade.domain.PriceQuote;
 import com.jobbootcamp.trade.domain.TradeOrder;
 import com.jobbootcamp.trade.domain.dto.CreateOrderRequest;
 import com.jobbootcamp.trade.domain.dto.OrderResponse;
 import com.jobbootcamp.trade.domain.dto.PageResponse;
+import com.jobbootcamp.trade.domain.dto.QuoteResponse;
+import com.jobbootcamp.trade.infrastructure.DeductionLinkMapper;
 import com.jobbootcamp.trade.infrastructure.OrderCourseMapper;
 import com.jobbootcamp.trade.infrastructure.OrderLessonMapper;
 import com.jobbootcamp.trade.infrastructure.PendingCourseMapper;
@@ -31,6 +38,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -52,6 +60,7 @@ public class OrderService {
     private final QuoteStatusService quoteStatusService;
     private final CourseClient courseClient;
     private final LearningClient learningClient;
+    private final DeductionLinkMapper deductionLinkMapper;
     private final TransactionTemplate transactionTemplate;
 
     public OrderService(TradeOrderMapper orderMapper,
@@ -64,6 +73,7 @@ public class OrderService {
                         QuoteStatusService quoteStatusService,
                         CourseClient courseClient,
                         LearningClient learningClient,
+                        DeductionLinkMapper deductionLinkMapper,
                         PlatformTransactionManager transactionManager) {
         this.orderMapper = orderMapper;
         this.orderCourseMapper = orderCourseMapper;
@@ -75,6 +85,7 @@ public class OrderService {
         this.quoteStatusService = quoteStatusService;
         this.courseClient = courseClient;
         this.learningClient = learningClient;
+        this.deductionLinkMapper = deductionLinkMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -190,6 +201,9 @@ public class OrderService {
         if (!couponIds.isEmpty()) {
             throw new BusinessException(ErrorCode.COUPON_UNAVAILABLE, "优惠券功能尚未开放");
         }
+        if ("ROUTE".equals(quote.getProductType())) {
+            return createRouteInTransaction(quote, userId, requestKey, requestHash, now);
+        }
 
         ProductSnapshotResponse snapshot = courseClient.courseSnapshot(quote.getProductId());
         String currentSnapshotHash = QuoteHasher.snapshotHash(snapshot);
@@ -277,6 +291,221 @@ public class OrderService {
                 .eq(TradeOrder::getRequestKey, requestKey));
     }
 
+    /**
+     * 路线订单：报价只预览，成交时重新取路线快照和最早来源；学习 prepare 建立 hold，
+     * 已有课程只写抵扣边，不新增来源；全部已拥有时在报价阶段就不允许出现零元订单。
+     */
+    private OrderResponse createRouteInTransaction(PriceQuote quote, Long userId,
+                                                   String requestKey, String requestHash,
+                                                   LocalDateTime now) {
+        RouteSnapshotResponse route = courseClient.routeSnapshot(quote.getProductId());
+        if (!"ONLINE".equals(route.status())
+                || !Objects.equals(route.versionNo(), quote.getProductVersion())) {
+            quoteStatusService.mark(quote.getQuoteId(), "STALE");
+            throw new BusinessException(ErrorCode.QUOTE_CHANGED);
+        }
+        List<Long> courseIds = route.members().stream()
+                .map(RouteSnapshotResponse.Member::courseId).toList();
+        SourceSelectionResponse selectedResponse = learningClient.selectSources(userId, courseIds);
+        Map<Long, SourceSelectionItem> selected = sourceByCourse(selectedResponse.items());
+        List<QuoteResponse.CourseLine> currentLines = routeLines(route, selected);
+        long currentCredit = currentLines.stream().mapToLong(QuoteResponse.CourseLine::creditCent).sum();
+        long currentPayable = route.priceCent() - currentCredit;
+        String currentHash = QuoteHasher.routeQuoteHash(route, currentLines, route.priceCent(),
+                currentCredit, 0, currentPayable, "NONE");
+        if (!quote.getResultHash().equals(currentHash)) {
+            quoteStatusService.mark(quote.getQuoteId(), "STALE");
+            throw new BusinessException(ErrorCode.QUOTE_CHANGED);
+        }
+        if (currentPayable <= 0) {
+            throw new BusinessException(ErrorCode.ALREADY_OWNED,
+                    "路线课程均已拥有，无需创建付费订单",
+                    new ErrorData(null, null, String.valueOf(route.routeId())));
+        }
+        if (currentPayable < 100) {
+            throw new BusinessException(ErrorCode.DATA_INTEGRITY, "路线实付低于最低金额");
+        }
+
+        List<RouteSnapshotResponse.Member> newPaidMembers = route.members().stream()
+                .filter(member -> !member.free() && !selected.containsKey(member.courseId()))
+                .toList();
+        for (RouteSnapshotResponse.Member member : newPaidMembers) {
+            validateRouteNewPaid(member);
+            Long pendingOrderId = pendingCourseMapper.findOrderId(userId, member.courseId());
+            if (pendingOrderId != null) {
+                throw new BusinessException(ErrorCode.ORDER_CONFLICT, "路线中有课程已有待支付订单",
+                        new ErrorData(null, null, String.valueOf(pendingOrderId)));
+            }
+        }
+
+        TradeOrder order = new TradeOrder();
+        order.setOrderNo("BO" + UUID.randomUUID().toString().replace("-", ""));
+        order.setUserId(userId);
+        order.setProductType("ROUTE");
+        order.setProductId(route.routeId());
+        order.setState("CREATING");
+        order.setFulfillmentState("PENDING");
+        order.setTotalCent(route.priceCent());
+        order.setCreditCent(currentCredit);
+        order.setDiscountCent(0L);
+        order.setPayableCent(currentPayable);
+        order.setCreatedAt(now);
+        order.setExpiresAt(now.plusSeconds(ORDER_TTL_SECONDS));
+        order.setSnapshotHash(QuoteHasher.routeSnapshotHash(route));
+        order.setSnapshot(routeOrderSnapshot(route, selected, currentLines, quote));
+        order.setRequestKey(requestKey);
+        order.setRequestHash(requestHash);
+        order.setUpdatedAt(now);
+        orderMapper.insert(order);
+        boolean prepared = false;
+        try {
+            PurchasePrepareResponse preparedResponse = learningClient.preparePurchase(
+                    order.getId(), userId, courseIds);
+            prepared = true;
+            Map<Long, SourceSelectionItem> held = sourceByCourse(preparedResponse.holds());
+            List<QuoteResponse.CourseLine> heldLines = routeLines(route, held);
+            long heldCredit = heldLines.stream().mapToLong(QuoteResponse.CourseLine::creditCent).sum();
+            long heldPayable = route.priceCent() - heldCredit;
+            if (!quote.getResultHash().equals(QuoteHasher.routeQuoteHash(route, heldLines,
+                    route.priceCent(), heldCredit, 0, heldPayable, "NONE"))) {
+                quoteStatusService.mark(quote.getQuoteId(), "STALE");
+                throw new BusinessException(ErrorCode.QUOTE_CHANGED);
+            }
+
+            for (RouteSnapshotResponse.Member member : route.members()) {
+                SourceSelectionItem source = member.free() ? null : held.get(member.courseId());
+                long allocated = member.free() ? 0
+                        : (member.allocatedCent() == null ? 0 : member.allocatedCent());
+                long credit = source == null ? 0 : allocated;
+                long payable = allocated - credit;
+                boolean newPaid = !member.free() && source == null;
+                OrderCourse line = new OrderCourse();
+                line.setOrderId(order.getId());
+                line.setCourseId(member.courseId());
+                line.setCourseVersion(member.courseVersion() == null ? 0 : member.courseVersion());
+                line.setUnitPriceCent(member.unitPriceCent());
+                line.setAllocatedCent(allocated);
+                line.setCreditCent(credit);
+                line.setCouponCent(0L);
+                line.setPayableCent(payable);
+                line.setSourceId(source == null ? null : source.sourceId());
+                line.setSourceGrantId(source == null ? null : source.sourceGrantId());
+                line.setIsFree(member.free());
+                line.setIsNewPaid(newPaid);
+                line.setCategoryIds(TradeJson.write(member.categoryAncestorIds() == null
+                        ? List.of() : member.categoryAncestorIds()));
+                line.setCreatedAt(now);
+                orderCourseMapper.insert(line);
+
+                if (newPaid) {
+                    if (member.lessons() != null) {
+                        for (ProductSnapshotResponse.SnapshotLesson lesson : member.lessons()) {
+                            orderLessonMapper.insert(order.getId(), member.courseId(), lesson.lessonId(),
+                                    lesson.durationMs() == null ? 0L : lesson.durationMs(), now);
+                        }
+                    }
+                    try {
+                        pendingCourseMapper.insert(userId, member.courseId(), order.getId(), now);
+                    } catch (DuplicateKeyException e) {
+                        throw new BusinessException(ErrorCode.ORDER_CONFLICT, "路线中有课程已有待支付订单");
+                    }
+                }
+                if (source != null && allocated > 0 && source.sourceGrantId() != null) {
+                    DeductionLink link = new DeductionLink();
+                    link.setSourceOrderId(source.sourceOrderId());
+                    link.setDependentOrderId(order.getId());
+                    link.setCourseId(member.courseId());
+                    link.setSourceId(source.sourceId());
+                    link.setSourceGrantId(source.sourceGrantId());
+                    link.setState("RESERVED");
+                    link.setCreatedAt(now);
+                    link.setUpdatedAt(now);
+                    deductionLinkMapper.insert(link);
+                }
+            }
+
+            order.setState("WAIT_PAY");
+            order.setUpdatedAt(now);
+            orderMapper.updateById(order);
+            quoteMapper.updateStatusFromReady(quote.getQuoteId(), "CONSUMED", now);
+            guardMapper.increment(userId, now);
+            return toResponse(order);
+        } catch (RuntimeException e) {
+            if (prepared) {
+                try {
+                    learningClient.releasePurchase(order.getId(), userId);
+                } catch (RuntimeException ignored) {
+                    // 释放失败留给订单关闭/对账任务重试，不覆盖原始建单错误。
+                }
+            }
+            throw e;
+        }
+    }
+
+    private Map<Long, SourceSelectionItem> sourceByCourse(List<SourceSelectionItem> items) {
+        Map<Long, SourceSelectionItem> result = new LinkedHashMap<>();
+        for (SourceSelectionItem item : items) {
+            result.put(item.courseId(), item);
+        }
+        return result;
+    }
+
+    private List<QuoteResponse.CourseLine> routeLines(RouteSnapshotResponse route,
+                                                      Map<Long, SourceSelectionItem> sources) {
+        List<QuoteResponse.CourseLine> lines = new ArrayList<>();
+        for (RouteSnapshotResponse.Member member : route.members()) {
+            long allocated = member.free() ? 0
+                    : (member.allocatedCent() == null ? 0 : member.allocatedCent());
+            SourceSelectionItem source = member.free() ? null : sources.get(member.courseId());
+            long credit = source == null ? 0 : allocated;
+            lines.add(new QuoteResponse.CourseLine(member.courseId(), member.unitPriceCent(), allocated,
+                    credit, source == null ? null : source.sourceId(),
+                    source == null ? null : source.sourceGrantId(),
+                    source == null ? null : source.sourceOrderId(), allocated - credit));
+        }
+        return lines;
+    }
+
+    private void validateRouteNewPaid(RouteSnapshotResponse.Member member) {
+        boolean hasVideo = member.lessons() != null && member.lessons().stream()
+                .anyMatch(lesson -> lesson.mediaId() != null
+                        && lesson.durationMs() != null && lesson.durationMs() > 0);
+        if (!hasVideo) {
+            throw new BusinessException(ErrorCode.DATA_INTEGRITY,
+                    "路线新购付费课程缺少可播放视频：" + member.title());
+        }
+    }
+
+    private String routeOrderSnapshot(RouteSnapshotResponse route,
+                                      Map<Long, SourceSelectionItem> selected,
+                                      List<QuoteResponse.CourseLine> lines,
+                                      PriceQuote quote) {
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("productType", "ROUTE");
+        root.put("productId", route.routeId());
+        root.put("productVersion", route.versionNo());
+        root.put("priceCent", route.priceCent());
+        root.put("couponMode", "NONE");
+        root.put("quoteHash", quote.getResultHash());
+        root.put("policyVersion", "trade-v1");
+        List<Map<String, Object>> members = new ArrayList<>();
+        for (QuoteResponse.CourseLine line : lines) {
+            SourceSelectionItem source = selected.get(line.courseId());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("courseId", line.courseId());
+            row.put("unitPriceCent", line.unitPriceCent());
+            row.put("allocatedCent", line.allocatedCent());
+            row.put("creditCent", line.creditCent());
+            row.put("payableCent", line.remainingCent());
+            row.put("sourceId", source == null ? null : source.sourceId());
+            row.put("sourceGrantId", source == null ? null : source.sourceGrantId());
+            row.put("sourceOrderId", source == null ? null : source.sourceOrderId());
+            members.add(row);
+        }
+        root.put("members", members);
+        return TradeJson.write(root);
+    }
+
     private OrderResponse existingResponse(TradeOrder order, String requestHash) {
         if (!order.getRequestHash().equals(requestHash)) {
             throw new BusinessException(ErrorCode.CONFLICT, "该幂等键已用于不同的下单请求");
@@ -310,7 +539,7 @@ public class OrderService {
                 order.getFulfillmentState(), order.getCreatedAt(), order.getExpiresAt(), order.getPaidAt(),
                 new OrderResponse.Pricing(order.getTotalCent(), order.getCreditCent(),
                         order.getDiscountCent(), order.getPayableCent()),
-                items, List.of(), "COURSE");
+                items, List.of(), order.getProductType());
     }
 
     private String orderSnapshot(ProductSnapshotResponse snapshot, PriceQuote quote) {

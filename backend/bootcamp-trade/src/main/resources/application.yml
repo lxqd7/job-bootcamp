@@ -32,8 +32,13 @@ app:
     session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
   course:
     snapshot-url: ${COURSE_SNAPSHOT_URL:http://127.0.0.1:18082/int/v1/products/snapshots}
+    route-snapshot-url: ${COURSE_ROUTE_SNAPSHOT_URL:http://127.0.0.1:18082/int/v1/routes/snapshots}
   learning:
     access-url: ${LEARNING_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/check}
+    sources-url: ${LEARNING_SOURCES_URL:http://127.0.0.1:18083/int/v1/entitlements/sources}
+    prepare-url: ${LEARNING_PREPARE_URL:http://127.0.0.1:18083/int/v1/purchases/prepare}
+    commit-url: ${LEARNING_COMMIT_URL:http://127.0.0.1:18083/int/v1/purchases/commit}
+    release-url: ${LEARNING_RELEASE_URL:http://127.0.0.1:18083/int/v1/purchases/release}
   payment:
     mode: ${PAYMENT_MODE:mock}
     mock-signing-key: ${PAYMENT_MOCK_SIGNING_KEY:dev-mock-payment-key}
