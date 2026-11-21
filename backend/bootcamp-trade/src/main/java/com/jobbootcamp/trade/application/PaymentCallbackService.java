@@ -12,6 +12,7 @@ import com.jobbootcamp.trade.domain.Payment;
 import com.jobbootcamp.trade.domain.PaymentRequest;
 import com.jobbootcamp.trade.domain.TradeOrder;
 import com.jobbootcamp.trade.infrastructure.ChannelReceiptMapper;
+import com.jobbootcamp.trade.infrastructure.DeductionLinkMapper;
 import com.jobbootcamp.trade.infrastructure.OrderCourseMapper;
 import com.jobbootcamp.trade.infrastructure.OrderLessonMapper;
 import com.jobbootcamp.trade.infrastructure.OutboxEventMapper;
@@ -57,6 +58,8 @@ public class PaymentCallbackService {
     private final TradeGuardMapper guardMapper;
     private final OutboxEventMapper outboxMapper;
     private final RefundService refundService;
+    private final LearningClient learningClient;
+    private final DeductionLinkMapper deductionLinkMapper;
     private final TransactionTemplate transactionTemplate;
 
     public PaymentCallbackService(PaymentPort paymentPort,
@@ -70,6 +73,8 @@ public class PaymentCallbackService {
                                   TradeGuardMapper guardMapper,
                                   OutboxEventMapper outboxMapper,
                                   RefundService refundService,
+                                  LearningClient learningClient,
+                                  DeductionLinkMapper deductionLinkMapper,
                                   PlatformTransactionManager transactionManager) {
         this.paymentPort = paymentPort;
         this.requestMapper = requestMapper;
@@ -82,6 +87,8 @@ public class PaymentCallbackService {
         this.guardMapper = guardMapper;
         this.outboxMapper = outboxMapper;
         this.refundService = refundService;
+        this.learningClient = learningClient;
+        this.deductionLinkMapper = deductionLinkMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -181,15 +188,17 @@ public class PaymentCallbackService {
         paymentMapper.insert(payment);
 
         TradeOrder order = orderMapper.selectForUpdate(request.getOrderId());
-        if (order != null && "ROUTE".equals(order.getProductType())) {
-            throw new BusinessException(ErrorCode.CONFLICT, "路线支付处理将在 S07-b 开放");
-        }
         boolean valid = isValidPayment(order, paidAt);
         Long refundId = null;
         if (valid) {
             guardMapper.ensure(order.getUserId(), now);
             guardMapper.increment(order.getUserId(), now);
             Long sequence = guardMapper.lock(order.getUserId());
+            if ("ROUTE".equals(order.getProductType())) {
+                // 路线支付前先提交来源预留；提交失败由回调重试，不能把未提交的抵扣当成已支付。
+                learningClient.commitPurchase(order.getId(), order.getUserId());
+                deductionLinkMapper.updateState(order.getId(), "RESERVED", "COMMITTED", now);
+            }
             orderMapper.markPaid(order.getId(), paidAt, sequence, now);
             pendingCourseMapper.deleteByOrderId(order.getId());
             requestMapper.updateState(request.getId(), "CLOSED", now);
@@ -199,6 +208,7 @@ public class PaymentCallbackService {
             if (order != null && ("WAIT_PAY".equals(order.getState()) || "CLOSING".equals(order.getState()))) {
                 orderMapper.markClosed(order.getId(), "CLOSED", now);
                 pendingCourseMapper.deleteByOrderId(order.getId());
+                releaseRoutePurchase(order, now);
             }
             requestMapper.updateState(request.getId(), "CLOSED", now);
             if (order != null) {
@@ -212,6 +222,20 @@ public class PaymentCallbackService {
         TradeOrder updated = orderMapper.selectById(request.getOrderId());
         return new CallbackResult(payment.getId(), request.getOrderId(),
                 updated == null ? null : updated.getState(), valid, refundId, false);
+    }
+
+    private void releaseRoutePurchase(TradeOrder order, LocalDateTime now) {
+        if (!"ROUTE".equals(order.getProductType())) {
+            return;
+        }
+        try {
+            learningClient.releasePurchase(order.getId(), order.getUserId());
+        } catch (RuntimeException ignored) {
+        }
+        try {
+            deductionLinkMapper.updateState(order.getId(), "RESERVED", "RELEASED", now);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private boolean isValidPayment(TradeOrder order, LocalDateTime paidAt) {
@@ -235,17 +259,6 @@ public class PaymentCallbackService {
         List<OrderCourse> courses = orderCourseMapper.selectList(Wrappers.<OrderCourse>lambdaQuery()
                 .eq(OrderCourse::getOrderId, order.getId())
                 .orderByAsc(OrderCourse::getCourseId));
-        List<Map<String, Object>> coursePayloads = new ArrayList<>();
-        List<Long> refundLessonIds = new ArrayList<>();
-        for (OrderCourse course : courses) {
-            List<Long> lessonIds = orderLessonMapper.selectLessonIds(order.getId(), course.getCourseId());
-            refundLessonIds.addAll(lessonIds);
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("courseId", course.getCourseId());
-            row.put("courseVersion", course.getCourseVersion());
-            row.put("lessonIds", lessonIds);
-            coursePayloads.add(row);
-        }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("orderId", order.getId());
         payload.put("userId", order.getUserId());
@@ -253,9 +266,38 @@ public class PaymentCallbackService {
         payload.put("paymentId", payment.getId());
         payload.put("orderVersion", 1);
         payload.put("snapshotHash", order.getSnapshotHash());
-        payload.put("courses", coursePayloads);
         payload.put("couponIds", List.of());
-        payload.put("refundLessonIds", refundLessonIds);
+        if ("ROUTE".equals(order.getProductType())) {
+            payload.put("productType", "ROUTE");
+            payload.put("routeId", order.getProductId());
+            List<Map<String, Object>> members = new ArrayList<>();
+            for (OrderCourse course : courses) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("courseId", course.getCourseId());
+                row.put("courseVersion", course.getCourseVersion());
+                row.put("epochId", course.getEpochId());
+                row.put("free", Boolean.TRUE.equals(course.getIsFree()));
+                row.put("newPaid", Boolean.TRUE.equals(course.getIsNewPaid()));
+                members.add(row);
+            }
+            payload.put("members", members);
+            payload.put("refundLessonIds", List.of());
+        } else {
+            List<Map<String, Object>> coursePayloads = new ArrayList<>();
+            List<Long> refundLessonIds = new ArrayList<>();
+            for (OrderCourse course : courses) {
+                List<Long> lessonIds = orderLessonMapper.selectLessonIds(order.getId(), course.getCourseId());
+                refundLessonIds.addAll(lessonIds);
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("courseId", course.getCourseId());
+                row.put("courseVersion", course.getCourseVersion());
+                row.put("lessonIds", lessonIds);
+                coursePayloads.add(row);
+            }
+            payload.put("productType", "COURSE");
+            payload.put("courses", coursePayloads);
+            payload.put("refundLessonIds", refundLessonIds);
+        }
 
         OutboxEvent event = new OutboxEvent();
         event.setEventId(UUID.randomUUID().toString());

@@ -12,6 +12,8 @@ import com.jobbootcamp.contracts.internal.PurchasePrepareResponse;
 import com.jobbootcamp.contracts.internal.SourceSelectionItem;
 import com.jobbootcamp.contracts.internal.SourceSelectionResponse;
 import com.jobbootcamp.learning.domain.PurchaseHold;
+import com.jobbootcamp.learning.domain.RouteEpochProjection;
+import com.jobbootcamp.learning.domain.RouteEntitlement;
 import com.jobbootcamp.learning.domain.SourceSelectionRow;
 import com.jobbootcamp.learning.domain.dto.MyCourseItem;
 import com.jobbootcamp.learning.domain.dto.MyCourseRow;
@@ -22,7 +24,9 @@ import com.jobbootcamp.learning.infrastructure.CourseSourceMapper;
 import com.jobbootcamp.learning.infrastructure.EntitlementQueryMapper;
 import com.jobbootcamp.learning.infrastructure.EntitlementSourceMapper;
 import com.jobbootcamp.learning.infrastructure.FreeClaimReceiptMapper;
+import com.jobbootcamp.learning.infrastructure.GrantRouteMemberMapper;
 import com.jobbootcamp.learning.infrastructure.PurchaseHoldMapper;
+import com.jobbootcamp.learning.infrastructure.RouteEpochProjectionMapper;
 import com.jobbootcamp.learning.infrastructure.RouteEntitlementMapper;
 import com.jobbootcamp.learning.infrastructure.UserGuardMapper;
 import org.springframework.stereotype.Service;
@@ -52,6 +56,8 @@ public class EntitlementService {
     private final EntitlementQueryMapper queryMapper;
     private final CourseSourceMapper sourceSelectionMapper;
     private final PurchaseHoldMapper purchaseHoldMapper;
+    private final GrantRouteMemberMapper routeMemberMapper;
+    private final RouteEpochProjectionMapper epochProjectionMapper;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate rowTemplate;
 
@@ -63,6 +69,8 @@ public class EntitlementService {
                               EntitlementQueryMapper queryMapper,
                               CourseSourceMapper sourceSelectionMapper,
                               PurchaseHoldMapper purchaseHoldMapper,
+                              GrantRouteMemberMapper routeMemberMapper,
+                              RouteEpochProjectionMapper epochProjectionMapper,
                               PlatformTransactionManager transactionManager) {
         this.guardMapper = guardMapper;
         this.sourceMapper = sourceMapper;
@@ -72,6 +80,8 @@ public class EntitlementService {
         this.queryMapper = queryMapper;
         this.sourceSelectionMapper = sourceSelectionMapper;
         this.purchaseHoldMapper = purchaseHoldMapper;
+        this.routeMemberMapper = routeMemberMapper;
+        this.epochProjectionMapper = epochProjectionMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -272,6 +282,161 @@ public class EntitlementService {
         rowTemplate.executeWithoutResult(status -> guardMapper.insertIfAbsent(userId, now));
         return transactionTemplate.execute(status -> grantPurchaseInTransaction(
                 orderId, userId, paidAt, courses, now));
+    }
+
+    /**
+     * 路线支付成功：建立 ROUTE_ORDER 来源和路线资格；已抵扣课程不新增路线 grant，
+     * 新购付费课和免费课分别建立课程来源，所有合法成员记录一条 epoch 资格。
+     */
+    public PurchaseGrantResult grantRoutePurchase(Long orderId, Long userId, LocalDateTime paidAt,
+                                                  Long routeId, List<RoutePurchaseMember> members) {
+        if (orderId == null || orderId <= 0 || userId == null || userId <= 0
+                || routeId == null || routeId <= 0 || paidAt == null
+                || members == null || members.isEmpty()) {
+            throw new com.jobbootcamp.common.error.BusinessException(
+                    com.jobbootcamp.common.error.ErrorCode.VALIDATION_FAILED, "路线授予命令参数不合法");
+        }
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        rowTemplate.executeWithoutResult(status -> guardMapper.insertIfAbsent(userId, now));
+        return transactionTemplate.execute(status -> {
+            UserGuard guard = guardMapper.selectForUpdate(userId);
+            EntitlementSource source = findRouteSource(userId, orderId);
+            if (source == null) {
+                source = new EntitlementSource();
+                source.setUserId(userId);
+                source.setType("ROUTE_ORDER");
+                source.setSourceKey(String.valueOf(orderId));
+                source.setOrderId(orderId);
+                source.setRouteId(routeId);
+                source.setAcquiredAt(paidAt);
+                source.setPaidAt(paidAt);
+                source.setState("ACTIVE");
+                source.setLifecycleVersion(1L);
+                source.setCreatedAt(now);
+                source.setUpdatedAt(now);
+                sourceMapper.insert(source);
+            }
+            RouteEntitlement routeEntitlement = routeMapper.selectOne(Wrappers.<RouteEntitlement>lambdaQuery()
+                    .eq(RouteEntitlement::getSourceId, source.getId())
+                    .eq(RouteEntitlement::getRouteId, routeId));
+            if (routeEntitlement == null) {
+                RouteEntitlement created = new RouteEntitlement();
+                created.setUserId(userId);
+                created.setRouteId(routeId);
+                created.setSourceId(source.getId());
+                created.setFutureCourses(true);
+                created.setCreatedAt(now);
+                routeMapper.insert(created);
+            }
+            List<PurchaseGrantResult.Grant> grants = new ArrayList<>();
+            for (RoutePurchaseMember member : members) {
+                if (member.epochId() != null) {
+                    routeMemberMapper.insertIfAbsent(source.getId(), member.epochId(), member.courseId(),
+                            paidAt, now);
+                }
+                if (member.free()) {
+                    ensureFreeGrant(userId, member.courseId(), paidAt, guard, now);
+                } else if (member.newPaid()) {
+                    CourseGrant grant = ensureGrant(userId, member.courseId(), source, paidAt, guard, now);
+                    grants.add(new PurchaseGrantResult.Grant(member.courseId(), grant.getId()));
+                }
+            }
+            return new PurchaseGrantResult(source.getId(), grants);
+        });
+    }
+
+    /**
+     * 消费 course.route-changed：记录 epoch 投影，已有路线资格用户补发新增课程；
+     * 移除只关闭投影，不撤销已授予课程（BUY-07）。
+     */
+    public void applyRouteChange(Long routeId, Long version, List<RouteEpochChange> added,
+                                 List<Long> removedEpochIds, LocalDateTime eventAt) {
+        if (routeId == null || version == null || added == null) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        transactionTemplate.executeWithoutResult(status -> {
+            if (removedEpochIds != null) {
+                for (Long epochId : removedEpochIds) {
+                    epochProjectionMapper.close(epochId, eventAt, version, now);
+                }
+            }
+            for (RouteEpochChange change : added) {
+                if (change.epochId() == null || change.courseId() == null) {
+                    continue;
+                }
+                epochProjectionMapper.upsert(change.epochId(), routeId, change.courseId(),
+                        change.joinedAt() == null ? eventAt : change.joinedAt(),
+                        change.routeVersion(), change.free(), now);
+                for (RouteEntitlement entitlement : routeMapper.selectActiveByRoute(routeId)) {
+                    EntitlementSource source = sourceMapper.selectById(entitlement.getSourceId());
+                    if (source == null || !"ACTIVE".equals(source.getState())) {
+                        continue;
+                    }
+                    UserGuard guard = guardMapper.selectForUpdate(entitlement.getUserId());
+                    LocalDateTime qualifiedAt = change.joinedAt() == null ? eventAt : change.joinedAt();
+                    routeMemberMapper.insertIfAbsent(source.getId(), change.epochId(), change.courseId(),
+                            qualifiedAt, now);
+                    if (change.free()) {
+                        ensureFreeGrant(entitlement.getUserId(), change.courseId(), qualifiedAt, guard, now);
+                    } else {
+                        ensureGrant(entitlement.getUserId(), change.courseId(), source, qualifiedAt, guard, now);
+                    }
+                }
+            }
+        });
+    }
+
+    private EntitlementSource findRouteSource(Long userId, Long orderId) {
+        return sourceMapper.selectOne(Wrappers.<EntitlementSource>lambdaQuery()
+                .eq(EntitlementSource::getUserId, userId)
+                .eq(EntitlementSource::getType, "ROUTE_ORDER")
+                .eq(EntitlementSource::getSourceKey, String.valueOf(orderId)));
+    }
+
+    private CourseGrant ensureGrant(Long userId, Long courseId, EntitlementSource source,
+                                    LocalDateTime grantedAt, UserGuard guard, LocalDateTime now) {
+        CourseGrant grant = grantMapper.selectOne(Wrappers.<CourseGrant>lambdaQuery()
+                .eq(CourseGrant::getSourceId, source.getId())
+                .eq(CourseGrant::getCourseId, courseId));
+        if (grant != null) {
+            return grant;
+        }
+        long sequence = guard.getSequence() + 1;
+        guardMapper.updateSequence(userId, sequence, now);
+        guard.setSequence(sequence);
+        CourseGrant created = new CourseGrant();
+        created.setUserId(userId);
+        created.setCourseId(courseId);
+        created.setSourceId(source.getId());
+        created.setGrantedAt(grantedAt);
+        created.setGrantSequence(sequence);
+        grantMapper.insert(created);
+        return created;
+    }
+
+    private CourseGrant ensureFreeGrant(Long userId, Long courseId, LocalDateTime acquiredAt,
+                                        UserGuard guard, LocalDateTime now) {
+        EntitlementSource free = sourceMapper.selectOne(Wrappers.<EntitlementSource>lambdaQuery()
+                .eq(EntitlementSource::getUserId, userId)
+                .eq(EntitlementSource::getType, "FREE")
+                .eq(EntitlementSource::getSourceKey, String.valueOf(courseId)));
+        if (free == null) {
+            long sequence = guard.getSequence() + 1;
+            guardMapper.updateSequence(userId, sequence, now);
+            guard.setSequence(sequence);
+            free = new EntitlementSource();
+            free.setUserId(userId);
+            free.setType("FREE");
+            free.setSourceKey(String.valueOf(courseId));
+            free.setAcquiredAt(acquiredAt);
+            free.setState("ACTIVE");
+            free.setLifecycleVersion(1L);
+            free.setCreatedAt(now);
+            free.setUpdatedAt(now);
+            sourceMapper.insert(free);
+        }
+        return ensureGrant(userId, courseId, free, acquiredAt, guard, now);
     }
 
     private PurchaseGrantResult grantPurchaseInTransaction(Long orderId, Long userId,

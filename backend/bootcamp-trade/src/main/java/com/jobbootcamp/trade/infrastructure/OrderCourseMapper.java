@@ -23,7 +23,7 @@ public interface OrderCourseMapper extends BaseMapper<OrderCourse> {
 
     @Select("""
             SELECT COUNT(*) FROM order_course
-            WHERE order_id = #{orderId} AND source_id IS NULL
+            WHERE order_id = #{orderId} AND source_id IS NULL AND is_new_paid = TRUE
             """)
     int countMissingGrant(@Param("orderId") Long orderId);
 }

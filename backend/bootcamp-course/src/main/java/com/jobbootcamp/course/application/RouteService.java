@@ -330,6 +330,11 @@ public class RouteService {
                 Map<String, Object> added = new LinkedHashMap<>();
                 added.put("courseId", String.valueOf(member.courseId()));
                 added.put("epochId", String.valueOf(epoch.getId()));
+                // 学习侧用 joinedAt 作为后续新增课的 grantedAt，不能回填成路线购买时间。
+                added.put("joinedAt", now.toInstant(ZoneOffset.UTC).toString());
+                Course joinedCourse = courseMapper.selectById(member.courseId());
+                added.put("isFree", joinedCourse != null && Boolean.TRUE.equals(joinedCourse.getIsFree()));
+                added.put("courseVersion", courseVersionService.latestVersionNo(member.courseId()));
                 addedEpochs.add(added);
             } else {
                 currentMapper.updateSort(route.getId(), member.courseId(), sort);

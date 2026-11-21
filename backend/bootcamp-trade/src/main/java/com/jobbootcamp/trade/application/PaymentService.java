@@ -69,9 +69,6 @@ public class PaymentService {
             if (!"WAIT_PAY".equals(order.getState())) {
                 throw new BusinessException(ErrorCode.CONFLICT, "订单当前不可支付");
             }
-            if ("ROUTE".equals(order.getProductType())) {
-                throw new BusinessException(ErrorCode.CONFLICT, "路线支付将在 S07-b 开放");
-            }
             if (!order.getExpiresAt().isAfter(now)) {
                 throw new BusinessException(ErrorCode.CONFLICT, "订单已过期，请重新下单");
             }

@@ -383,6 +383,7 @@ public class OrderService {
                 line.setOrderId(order.getId());
                 line.setCourseId(member.courseId());
                 line.setCourseVersion(member.courseVersion() == null ? 0 : member.courseVersion());
+                line.setEpochId(member.epochId());
                 line.setUnitPriceCent(member.unitPriceCent());
                 line.setAllocatedCent(allocated);
                 line.setCreditCent(credit);

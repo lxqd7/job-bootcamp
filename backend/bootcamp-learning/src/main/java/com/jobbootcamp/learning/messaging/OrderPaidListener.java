@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobbootcamp.learning.application.EntitlementService;
 import com.jobbootcamp.learning.application.PurchaseCourse;
 import com.jobbootcamp.learning.application.PurchaseGrantResult;
+import com.jobbootcamp.learning.application.RoutePurchaseMember;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageDeliveryMode;
@@ -53,17 +54,35 @@ public class OrderPaidListener {
         long orderId = requiredLong(root, "orderId");
         long userId = requiredLong(root, "userId");
         String paidAtText = requiredText(root, "paidAt");
-        JsonNode coursesNode = root.path("courses");
-        if (!coursesNode.isArray() || coursesNode.isEmpty()) {
-            throw new IllegalArgumentException("payment-confirmed payload has no courses");
-        }
-        List<PurchaseCourse> courses = new ArrayList<>();
-        for (JsonNode course : coursesNode) {
-            courses.add(new PurchaseCourse(requiredLong(course, "courseId"),
-                    course.path("courseVersion").asLong(0)));
-        }
         LocalDateTime paidAt = parsePaidAt(paidAtText);
-        PurchaseGrantResult result = entitlementService.grantPurchase(orderId, userId, paidAt, courses);
+        PurchaseGrantResult result;
+        if ("ROUTE".equals(root.path("productType").asText("COURSE"))) {
+            long routeId = requiredLong(root, "routeId");
+            JsonNode membersNode = root.path("members");
+            if (!membersNode.isArray() || membersNode.isEmpty()) {
+                throw new IllegalArgumentException("route payment payload has no members");
+            }
+            List<RoutePurchaseMember> members = new ArrayList<>();
+            for (JsonNode member : membersNode) {
+                members.add(new RoutePurchaseMember(requiredLong(member, "courseId"),
+                        member.path("courseVersion").asLong(0),
+                        member.path("epochId").isNumber() ? member.path("epochId").asLong() : null,
+                        member.path("free").asBoolean(false),
+                        member.path("newPaid").asBoolean(false)));
+            }
+            result = entitlementService.grantRoutePurchase(orderId, userId, paidAt, routeId, members);
+        } else {
+            JsonNode coursesNode = root.path("courses");
+            if (!coursesNode.isArray() || coursesNode.isEmpty()) {
+                throw new IllegalArgumentException("payment-confirmed payload has no courses");
+            }
+            List<PurchaseCourse> courses = new ArrayList<>();
+            for (JsonNode course : coursesNode) {
+                courses.add(new PurchaseCourse(requiredLong(course, "courseId"),
+                        course.path("courseVersion").asLong(0)));
+            }
+            result = entitlementService.grantPurchase(orderId, userId, paidAt, courses);
+        }
         publishGranted(orderId, userId, result);
     }
 
