@@ -12,6 +12,7 @@ import TeacherAssignmentsView from '../views/TeacherAssignmentsView.vue'
 import MediaAdminView from '../views/MediaAdminView.vue'
 import TeacherHomeView from '../views/TeacherHomeView.vue'
 import AdminTradesView from '../views/AdminTradesView.vue'
+import ActivityAdminView from '../views/ActivityAdminView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import ForbiddenView from '../views/ForbiddenView.vue'
 
@@ -29,6 +30,7 @@ const router = createRouter({
     { path: '/admin/teachers', name: 'admin-teachers', component: TeacherAssignmentsView, meta: { roles: ['ADMIN'] } },
     { path: '/admin/media', name: 'admin-media', component: MediaAdminView, meta: { roles: ['ADMIN'] } },
     { path: '/admin/trades', name: 'admin-trades', component: AdminTradesView, meta: { roles: ['ADMIN'] } },
+    { path: '/admin/activities', name: 'admin-activities', component: ActivityAdminView, meta: { roles: ['ADMIN'] } },
     { path: '/teacher', name: 'teacher-home', component: TeacherHomeView, meta: { roles: ['TEACHER', 'ADMIN'] } },
     { path: '/me', name: 'profile', component: ProfileView, meta: { roles: ['TEACHER', 'ADMIN'] } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { public: true } }

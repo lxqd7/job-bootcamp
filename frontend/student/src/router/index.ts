@@ -14,6 +14,8 @@ import PointsView from '../views/PointsView.vue'
 import BoardView from '../views/BoardView.vue'
 import MyCoursesView from '../views/MyCoursesView.vue'
 import MyRoutesView from '../views/MyRoutesView.vue'
+import ActivitiesView from '../views/ActivitiesView.vue'
+import MyCouponsView from '../views/MyCouponsView.vue'
 import LearningView from '../views/LearningView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import OrderListView from '../views/OrderListView.vue'
@@ -35,6 +37,8 @@ const router = createRouter({
     { path: '/boards', name: 'boards', component: BoardView, meta: { roles: ['STUDENT'] } },
     { path: '/me/courses', name: 'my-courses', component: MyCoursesView, meta: { roles: ['STUDENT'] } },
     { path: '/me/routes', name: 'my-routes', component: MyRoutesView, meta: { roles: ['STUDENT'] } },
+    { path: '/activities', name: 'activities', component: ActivitiesView, meta: { roles: ['STUDENT'] } },
+    { path: '/me/coupons', name: 'my-coupons', component: MyCouponsView, meta: { roles: ['STUDENT'] } },
     { path: '/learning/courses/:id', name: 'learning', component: LearningView, meta: { roles: ['STUDENT'] } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { roles: ['STUDENT'] } },
     { path: '/orders', name: 'orders', component: OrderListView, meta: { roles: ['STUDENT'] } },

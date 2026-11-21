@@ -318,3 +318,58 @@ export interface ClaimResult {
   status: string
   sourceId: string | null
 }
+
+export interface CouponRuleView {
+  id: string
+  ruleKey: string
+  versionNo: number
+  type: string
+  scope: string
+  targetId: string | null
+  thresholdCent: number | null
+  amountCent: number | null
+  payRateBps: number | null
+  maxDiscountCent: number | null
+  validityType: string
+  validFrom: string | null
+  validUntil: string | null
+  validDays: number | null
+  issued: boolean
+  revision: number
+}
+
+export interface ActivityItemView {
+  id: string
+  ruleId: string
+  rule: CouponRuleView | null
+  stockTotal: number
+  issuedCount: number
+  perUserLimit: number
+  enabled: boolean
+  revision: number
+}
+
+export interface ActivityView {
+  id: string
+  name: string
+  state: string
+  openAt: string
+  closeAt: string
+  revision: number
+  items: ActivityItemView[]
+}
+
+export interface UserCouponView {
+  id: string
+  rule: CouponRuleView | null
+  sourceType: string
+  sourceGroupId: string
+  sourceItemId: string
+  validFrom: string
+  validUntil: string
+  status: string
+  displayStatus: string
+  lockedOrderId: string | null
+  usedOrderId: string | null
+  createdAt: string
+}

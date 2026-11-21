@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { http } from './http'
-import type { AdminOrderItem, ApiEnvelope, PageResponse } from './types'
+import type { ActivityView, AdminOrderItem, ApiEnvelope, CouponRuleView, PageResponse } from './types'
 
 export async function loadHealth(): Promise<{ status: string }> {
   const { data } = await http.get<{ status: string }>('/actuator/health')
@@ -35,6 +35,59 @@ export async function runPaymentScenario(
   if (data.code !== 'OK') {
     throw new Error(data.message || '模拟场景执行失败')
   }
+  return data.data
+}
+
+export async function loadCouponRules(): Promise<PageResponse<CouponRuleView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<CouponRuleView>>>('/api/v1/admin/coupon-rules', {
+    params: { page: 1, pageSize: 100 }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '券规则加载失败')
+  return data.data
+}
+
+export async function createCouponRule(payload: Record<string, unknown>): Promise<CouponRuleView> {
+  const { data } = await http.post<ApiEnvelope<CouponRuleView>>('/api/v1/admin/coupon-rules', payload)
+  if (data.code !== 'OK') throw new Error(data.message || '券规则创建失败')
+  return data.data
+}
+
+export async function loadAdminActivities(): Promise<PageResponse<ActivityView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<ActivityView>>>('/api/v1/admin/activities', {
+    params: { page: 1, pageSize: 100 }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '活动加载失败')
+  return data.data
+}
+
+export async function createActivity(payload: Record<string, unknown>): Promise<ActivityView> {
+  const { data } = await http.post<ApiEnvelope<ActivityView>>('/api/v1/admin/activities', payload)
+  if (data.code !== 'OK') throw new Error(data.message || '活动创建失败')
+  return data.data
+}
+
+export async function addActivityItem(
+  activityId: string,
+  payload: Record<string, unknown>
+): Promise<ActivityView> {
+  const { data } = await http.post<ApiEnvelope<ActivityView>>(
+    `/api/v1/admin/activities/${activityId}/items`,
+    payload
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '活动券项创建失败')
+  return data.data
+}
+
+export async function changeActivityState(
+  activityId: string,
+  action: 'activate' | 'pause' | 'end',
+  revision: number
+): Promise<ActivityView> {
+  const { data } = await http.post<ApiEnvelope<ActivityView>>(
+    `/api/v1/admin/activities/${activityId}/${action}`,
+    { revision }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '活动状态切换失败')
   return data.data
 }
 

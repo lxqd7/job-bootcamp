@@ -21,7 +21,9 @@ import type {
   RouteSummary,
   SignResult,
   SignStatus,
-  TradeQuote
+  TradeQuote,
+  ActivityView,
+  UserCouponView
 } from './types'
 
 export interface CategoryResult {
@@ -144,6 +146,50 @@ export async function loadMyRoutes(page = 1, pageSize = 100): Promise<PageRespon
   })
   if (data.code !== 'OK') {
     throw new Error(data.message || '我的路线接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadActivities(page = 1, pageSize = 20): Promise<PageResponse<ActivityView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<ActivityView>>>('/api/v1/activities', {
+    params: { page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '活动列表接口返回异常')
+  }
+  return data.data
+}
+
+export async function loadActivity(id: string): Promise<ActivityView> {
+  const { data } = await http.get<ApiEnvelope<ActivityView>>(`/api/v1/activities/${id}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '活动接口返回异常')
+  }
+  return data.data
+}
+
+export async function claimCoupon(itemId: string, requestKey: string): Promise<UserCouponView> {
+  const { data } = await http.post<ApiEnvelope<UserCouponView>>(
+    `/api/v1/activity-items/${itemId}/claims`,
+    null,
+    { headers: { 'Idempotency-Key': requestKey } }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '领券失败')
+  }
+  return data.data
+}
+
+export async function loadMyCoupons(
+  displayStatus: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<UserCouponView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<UserCouponView>>>('/api/v1/me/coupons', {
+    params: { displayStatus: displayStatus || undefined, page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '我的券接口返回异常')
   }
   return data.data
 }

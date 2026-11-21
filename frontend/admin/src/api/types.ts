@@ -214,3 +214,43 @@ export interface AdminOrderItem {
   paymentRequestId: string | null
   paymentRequestState: string | null
 }
+
+export interface CouponRuleView {
+  id: string
+  ruleKey: string
+  versionNo: number
+  type: string
+  scope: string
+  targetId: string | null
+  thresholdCent: number | null
+  amountCent: number | null
+  payRateBps: number | null
+  maxDiscountCent: number | null
+  validityType: string
+  validFrom: string | null
+  validUntil: string | null
+  validDays: number | null
+  issued: boolean
+  revision: number
+}
+
+export interface ActivityItemView {
+  id: string
+  ruleId: string
+  rule: CouponRuleView | null
+  stockTotal: number
+  issuedCount: number
+  perUserLimit: number
+  enabled: boolean
+  revision: number
+}
+
+export interface ActivityView {
+  id: string
+  name: string
+  state: string
+  openAt: string
+  closeAt: string
+  revision: number
+  items: ActivityItemView[]
+}
