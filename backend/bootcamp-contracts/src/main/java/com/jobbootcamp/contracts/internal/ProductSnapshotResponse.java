@@ -12,6 +12,7 @@ public record ProductSnapshotResponse(
         boolean free,
         String status,
         Long categoryId,
+        List<Long> categoryAncestorIds,
         List<SnapshotLesson> lessons
 ) {
     public record SnapshotLesson(Long lessonId, Long chapterId, String title, int sort,

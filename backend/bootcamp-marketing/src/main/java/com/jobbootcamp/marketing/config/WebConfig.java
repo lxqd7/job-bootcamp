@@ -8,9 +8,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final MarketingAuthInterceptor authInterceptor;
+    private final InternalAuthInterceptor internalAuthInterceptor;
 
-    public WebConfig(MarketingAuthInterceptor authInterceptor) {
+    public WebConfig(MarketingAuthInterceptor authInterceptor,
+                     InternalAuthInterceptor internalAuthInterceptor) {
         this.authInterceptor = authInterceptor;
+        this.internalAuthInterceptor = internalAuthInterceptor;
     }
 
     @Override
@@ -20,5 +23,6 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/activities/**", "/api/v1/activity-items/**",
                         "/api/v1/admin/coupon-rules/**", "/api/v1/admin/activities/**",
                         "/api/v1/admin/activity-items/**");
+        registry.addInterceptor(internalAuthInterceptor).addPathPatterns("/int/v1/**");
     }
 }

@@ -25,6 +25,7 @@ public class PriceQuote {
     private String inputHash;
     private String resultHash;
     private String status;
+    private String couponPlanJson;
     private String inputJson;
     private String resultJson;
     private LocalDateTime expiresAt;
@@ -61,6 +62,8 @@ public class PriceQuote {
     public void setResultHash(String resultHash) { this.resultHash = resultHash; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getCouponPlanJson() { return couponPlanJson; }
+    public void setCouponPlanJson(String couponPlanJson) { this.couponPlanJson = couponPlanJson; }
     public String getInputJson() { return inputJson; }
     public void setInputJson(String inputJson) { this.inputJson = inputJson; }
     public String getResultJson() { return resultJson; }

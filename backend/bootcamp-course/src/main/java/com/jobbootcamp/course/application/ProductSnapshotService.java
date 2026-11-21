@@ -8,6 +8,7 @@ import com.jobbootcamp.course.domain.Course;
 import com.jobbootcamp.course.domain.Lesson;
 import com.jobbootcamp.course.domain.MediaAsset;
 import com.jobbootcamp.course.infrastructure.CourseMapper;
+import com.jobbootcamp.course.infrastructure.CategoryClosureMapper;
 import com.jobbootcamp.course.infrastructure.LessonMapper;
 import com.jobbootcamp.course.infrastructure.MediaAssetMapper;
 import org.springframework.stereotype.Service;
@@ -26,13 +27,16 @@ public class ProductSnapshotService {
     private final CourseMapper courseMapper;
     private final LessonMapper lessonMapper;
     private final MediaAssetMapper mediaMapper;
+    private final CategoryClosureMapper categoryClosureMapper;
 
     public ProductSnapshotService(CourseMapper courseMapper,
                                   LessonMapper lessonMapper,
-                                  MediaAssetMapper mediaMapper) {
+                                  MediaAssetMapper mediaMapper,
+                                  CategoryClosureMapper categoryClosureMapper) {
         this.courseMapper = courseMapper;
         this.lessonMapper = lessonMapper;
         this.mediaMapper = mediaMapper;
+        this.categoryClosureMapper = categoryClosureMapper;
     }
 
     public ProductSnapshotResponse courseSnapshot(Long courseId) {
@@ -70,6 +74,7 @@ public class ProductSnapshotService {
                 Boolean.TRUE.equals(course.getIsFree()),
                 course.getStatus(),
                 course.getCategoryId(),
+                categoryClosureMapper.selectAncestorIds(course.getCategoryId()),
                 snapshotLessons);
     }
 

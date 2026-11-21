@@ -19,4 +19,30 @@ public interface PriceQuoteMapper extends BaseMapper<PriceQuote> {
     int updateStatusFromReady(@Param("quoteId") String quoteId,
                               @Param("status") String status,
                               @Param("now") LocalDateTime now);
+
+    @Update("""
+            UPDATE price_quote
+            SET status = #{toStatus}, updated_at = #{now}
+            WHERE quote_id = #{quoteId} AND status = #{fromStatus}
+            """)
+    int updateStatus(@Param("quoteId") String quoteId,
+                     @Param("fromStatus") String fromStatus,
+                     @Param("toStatus") String toStatus,
+                     @Param("now") LocalDateTime now);
+
+    @Update("""
+            UPDATE price_quote
+            SET status = #{status}, discount_cent = #{discountCent}, payable_cent = #{payableCent},
+                result_hash = #{resultHash}, coupon_plan_json = #{couponPlanJson},
+                result_json = #{resultJson}, updated_at = #{now}
+            WHERE quote_id = #{quoteId} AND status = 'CALCULATING'
+            """)
+    int updatePricingResult(@Param("quoteId") String quoteId,
+                            @Param("status") String status,
+                            @Param("discountCent") long discountCent,
+                            @Param("payableCent") long payableCent,
+                            @Param("resultHash") String resultHash,
+                            @Param("couponPlanJson") String couponPlanJson,
+                            @Param("resultJson") String resultJson,
+                            @Param("now") LocalDateTime now);
 }

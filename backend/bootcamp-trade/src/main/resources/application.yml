@@ -39,6 +39,9 @@ app:
     prepare-url: ${LEARNING_PREPARE_URL:http://127.0.0.1:18083/int/v1/purchases/prepare}
     commit-url: ${LEARNING_COMMIT_URL:http://127.0.0.1:18083/int/v1/purchases/commit}
     release-url: ${LEARNING_RELEASE_URL:http://127.0.0.1:18083/int/v1/purchases/release}
+  marketing:
+    pricing-calculate-url: ${MARKETING_PRICING_URL:http://127.0.0.1:18087/int/v1/pricing/calculate}
+    pricing-status-url: ${MARKETING_PRICING_STATUS_URL:http://127.0.0.1:18087/int/v1/pricing/status}
   payment:
     mode: ${PAYMENT_MODE:mock}
     mock-signing-key: ${PAYMENT_MOCK_SIGNING_KEY:dev-mock-payment-key}

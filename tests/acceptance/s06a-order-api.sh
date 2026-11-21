@@ -172,10 +172,12 @@ STATUS=$(curl -s -o "$TMP_DIR/admin-order.json" -w '%{http_code}' -H 'Content-Ty
   --data-binary @"$TMP_DIR/order-request.json" "$BASE/api/v1/orders")
 expect_status 403 "$STATUS" "admin cannot create student order" "$TMP_DIR/admin-order.json"
 
-echo "== Coupon mode is NONE-only in S06-a =="
+echo "== AUTO coupon mode is available after S08-b (no coupons -> unchanged price) =="
 STATUS=$(quote "$TOKEN" "$TMP_DIR/coupon.json" "{\"productType\":\"COURSE\",\"productId\":$TRADE_COURSE_ID,\"couponSelection\":{\"mode\":\"AUTO\",\"ids\":[]}}")
-expect_status 409 "$STATUS" "AUTO coupon mode is unavailable" "$TMP_DIR/coupon.json"
-expect_value "COUPON_UNAVAILABLE" "$(field code < "$TMP_DIR/coupon.json")" "coupon error code"
+expect_status 200 "$STATUS" "AUTO coupon mode creates a quote" "$TMP_DIR/coupon.json"
+expect_value "READY" "$(field data.status < "$TMP_DIR/coupon.json")" "AUTO quote ready"
+expect_value "0" "$(field data.discountCent < "$TMP_DIR/coupon.json")" "AUTO quote has no coupon discount"
+expect_value "990" "$(field data.payableCent < "$TMP_DIR/coupon.json")" "AUTO quote keeps price"
 
 echo "ALL S06-A ACCEPTANCE CHECKS PASSED"
 echo "orderId=$ORDER_ID quoteId=$QUOTE_ID"

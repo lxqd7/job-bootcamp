@@ -55,6 +55,19 @@ public final class QuoteHasher {
         return sha256(TradeJson.write(root));
     }
 
+    /**
+     * 把券定价结果绑定到基础报价指纹；基础金额或优惠计划任一变化都会改变最终 quoteHash。
+     */
+    public static String withPricing(String baseHash, String pricingHash) {
+        if (pricingHash == null || pricingHash.isBlank()) {
+            return baseHash;
+        }
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("baseHash", baseHash);
+        root.put("pricingHash", pricingHash);
+        return sha256(TradeJson.write(root));
+    }
+
     public static String routeSnapshotHash(RouteSnapshotResponse snapshot) {
         return sha256(TradeJson.write(routeRoot(snapshot)));
     }
@@ -148,6 +161,7 @@ public final class QuoteHasher {
         root.put("free", snapshot.free());
         root.put("status", snapshot.status());
         root.put("categoryId", snapshot.categoryId());
+        root.put("categoryAncestorIds", snapshot.categoryAncestorIds());
         List<Map<String, Object>> lessons = new ArrayList<>();
         if (snapshot.lessons() != null) {
             for (ProductSnapshotResponse.SnapshotLesson lesson : snapshot.lessons()) {

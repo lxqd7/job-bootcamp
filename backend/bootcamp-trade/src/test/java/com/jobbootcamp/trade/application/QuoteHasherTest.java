@@ -12,7 +12,7 @@ class QuoteHasherTest {
 
     private ProductSnapshotResponse snapshot(long priceCent) {
         return new ProductSnapshotResponse("COURSE", 11L, "并发实战", "desc", 2L, priceCent,
-                false, "ONLINE", 3L,
+                false, "ONLINE", 3L, List.of(3L),
                 List.of(new ProductSnapshotResponse.SnapshotLesson(12L, 4L, "第一课", 1, 1L, 5055L)));
     }
 
