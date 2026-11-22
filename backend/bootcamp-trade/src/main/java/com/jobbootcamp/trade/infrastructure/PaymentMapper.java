@@ -15,4 +15,11 @@ public interface PaymentMapper extends BaseMapper<Payment> {
             """)
     Payment selectByChannelTradeNo(@Param("channel") String channel,
                                    @Param("channelTradeNo") String channelTradeNo);
+
+    @Select("""
+            SELECT * FROM payment
+            WHERE order_id = #{orderId} AND status = 'SUCCEEDED'
+            ORDER BY id LIMIT 1
+            """)
+    Payment selectSucceededByOrder(@Param("orderId") Long orderId);
 }

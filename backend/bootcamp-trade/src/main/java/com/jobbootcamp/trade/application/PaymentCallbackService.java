@@ -323,24 +323,29 @@ public class PaymentCallbackService {
         payload.put("orderVersion", 1);
         payload.put("snapshotHash", order.getSnapshotHash());
         payload.put("couponIds", List.of());
+        List<Long> refundLessonIds = new ArrayList<>();
         if ("ROUTE".equals(order.getProductType())) {
             payload.put("productType", "ROUTE");
             payload.put("routeId", order.getProductId());
             List<Map<String, Object>> members = new ArrayList<>();
             for (OrderCourse course : courses) {
+                List<Long> lessonIds = orderLessonMapper.selectLessonIds(order.getId(), course.getCourseId());
+                if (Boolean.TRUE.equals(course.getIsNewPaid())) {
+                    refundLessonIds.addAll(lessonIds);
+                }
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("courseId", course.getCourseId());
                 row.put("courseVersion", course.getCourseVersion());
                 row.put("epochId", course.getEpochId());
                 row.put("free", Boolean.TRUE.equals(course.getIsFree()));
                 row.put("newPaid", Boolean.TRUE.equals(course.getIsNewPaid()));
+                row.put("lessonIds", lessonIds);
                 members.add(row);
             }
             payload.put("members", members);
-            payload.put("refundLessonIds", List.of());
+            payload.put("refundLessonIds", refundLessonIds);
         } else {
             List<Map<String, Object>> coursePayloads = new ArrayList<>();
-            List<Long> refundLessonIds = new ArrayList<>();
             for (OrderCourse course : courses) {
                 List<Long> lessonIds = orderLessonMapper.selectLessonIds(order.getId(), course.getCourseId());
                 refundLessonIds.addAll(lessonIds);

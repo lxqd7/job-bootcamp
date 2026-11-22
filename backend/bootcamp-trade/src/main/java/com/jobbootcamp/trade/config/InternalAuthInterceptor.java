@@ -14,7 +14,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class InternalAuthInterceptor implements HandlerInterceptor {
 
     public static final String SERVICE_TOKEN_HEADER = "X-Service-Token";
-    private static final String OPERATION = "orders:status";
 
     private final String secret;
 
@@ -24,9 +23,15 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        String uri = request.getRequestURI();
+        String operation = uri.contains("/refund-basis")
+                ? "refunds:basis"
+                : uri.contains("/refunds/qualify")
+                ? "refunds:qualify"
+                : "orders:status";
         try {
             InternalTokenCodec.verify(secret, request.getHeader(SERVICE_TOKEN_HEADER),
-                    "bootcamp-trade", OPERATION);
+                    "bootcamp-trade", operation);
             return true;
         } catch (InternalTokenException e) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "内部服务凭据无效");

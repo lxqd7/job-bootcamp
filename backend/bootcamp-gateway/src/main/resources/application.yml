@@ -12,6 +12,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: learning-refund
+              uri: http://127.0.0.1:18083
+              predicates:
+                - Path=/api/v1/orders/*/refund-applications,/api/v1/refund-applications/**
             - id: trade-service
               uri: http://127.0.0.1:18084
               predicates:

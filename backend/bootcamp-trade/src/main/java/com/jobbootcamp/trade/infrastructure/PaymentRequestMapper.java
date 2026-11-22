@@ -29,4 +29,10 @@ public interface PaymentRequestMapper extends BaseMapper<PaymentRequest> {
     int updateState(@Param("id") Long id,
                     @Param("state") String state,
                     @Param("now") LocalDateTime now);
+
+    @Select("""
+            SELECT COUNT(*) FROM payment_request
+            WHERE order_id = #{orderId} AND state IN ('INIT', 'PENDING', 'UNKNOWN')
+            """)
+    int countActiveByOrder(@Param("orderId") Long orderId);
 }

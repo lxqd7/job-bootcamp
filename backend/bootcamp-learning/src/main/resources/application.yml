@@ -35,6 +35,9 @@ app:
     play-issue-url: ${COURSE_PLAY_ISSUE_URL:http://127.0.0.1:18082/int/v1/play-sessions/issue}
     play-check-url: ${COURSE_PLAY_CHECK_URL:http://127.0.0.1:18082/int/v1/play-sessions/check}
     catalog-url: ${COURSE_CATALOG_URL:http://127.0.0.1:18082/int/v1/courses/catalog}
+  trade:
+    refund-basis-url: ${TRADE_REFUND_BASIS_URL:http://127.0.0.1:18084/int/v1/orders}
+    refund-qualify-url: ${TRADE_REFUND_QUALIFY_URL:http://127.0.0.1:18084/int/v1/refunds/qualify}
   outbox:
     transport: ${OUTBOX_TRANSPORT:none}
     exchange: ${RABBIT_EXCHANGE:bc.domain.v1}
