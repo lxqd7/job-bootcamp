@@ -254,3 +254,17 @@ export interface ActivityView {
   revision: number
   items: ActivityItemView[]
 }
+export interface AdminRefundItem {
+  id: string
+  refundNo: string
+  orderId: string
+  userId: string | null
+  kind: string
+  state: string
+  amountCent: number
+  progressN: number | null
+  progressD: number | null
+  channelRefundNo: string | null
+  acceptedAt: string
+  updatedAt: string
+}

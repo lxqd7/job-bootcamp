@@ -6,6 +6,7 @@ import com.jobbootcamp.common.web.ApiResponse;
 import com.jobbootcamp.trade.application.RefundService;
 import com.jobbootcamp.trade.config.StudentAuthInterceptor;
 import com.jobbootcamp.trade.domain.dto.RefundResponse;
+import com.jobbootcamp.trade.domain.dto.RefundStatusResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -31,5 +32,16 @@ public class RefundController {
             throw new BusinessException(ErrorCode.FORBIDDEN, "退款单仅面向学生账号");
         }
         return ApiResponse.ok(refundService.get(userId, refundId));
+    }
+
+    @GetMapping("/by-order/{orderId}")
+    public ApiResponse<RefundStatusResponse> getByOrder(
+            @PathVariable("orderId") Long orderId,
+            @RequestAttribute(StudentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(StudentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        if (!"STUDENT".equals(role)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "退款单仅面向学生账号");
+        }
+        return ApiResponse.ok(refundService.getByOrder(userId, orderId));
     }
 }

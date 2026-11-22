@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { http } from './http'
-import type { ActivityView, AdminOrderItem, ApiEnvelope, CouponRuleView, PageResponse } from './types'
+import type { ActivityView, AdminOrderItem, AdminRefundItem, ApiEnvelope, CouponRuleView, PageResponse } from './types'
 
 export async function loadHealth(): Promise<{ status: string }> {
   const { data } = await http.get<{ status: string }>('/actuator/health')
@@ -17,6 +17,30 @@ export async function loadAdminOrders(
   })
   if (data.code !== 'OK') {
     throw new Error(data.message || '订单列表加载失败')
+  }
+  return data.data
+}
+
+export async function loadAdminRefunds(
+  state: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<AdminRefundItem>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<AdminRefundItem>>>('/api/v1/admin/refunds', {
+    params: { state: state || undefined, page, pageSize }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '退款列表加载失败')
+  }
+  return data.data
+}
+
+export async function reconcileRefund(refundId: string): Promise<Record<string, unknown>> {
+  const { data } = await http.post<ApiEnvelope<Record<string, unknown>>>(
+    `/api/v1/admin/refunds/${refundId}/reconcile`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '退款对账失败')
   }
   return data.data
 }

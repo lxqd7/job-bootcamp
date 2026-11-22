@@ -179,7 +179,8 @@ onBeforeUnmount(() => {
           >
             去学习
           </RouterLink>
-          <span v-else class="pending">学习服务开通处理中，本页会自动刷新。</span>
+          <RouterLink class="btn" :to="`/orders/${order.id}/refund`">申请退款</RouterLink>
+          <span v-if="order.fulfillmentState !== 'DONE'" class="pending">学习服务开通处理中，本页会自动刷新。</span>
         </template>
         <button class="btn" type="button" :disabled="loading" @click="load">刷新状态</button>
       </div>

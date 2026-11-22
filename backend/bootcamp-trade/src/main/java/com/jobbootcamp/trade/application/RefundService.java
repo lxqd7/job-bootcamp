@@ -1,5 +1,6 @@
 package com.jobbootcamp.trade.application;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.trade.domain.Payment;
@@ -7,6 +8,7 @@ import com.jobbootcamp.trade.domain.PaymentRequest;
 import com.jobbootcamp.trade.domain.Refund;
 import com.jobbootcamp.trade.domain.TradeOrder;
 import com.jobbootcamp.trade.domain.dto.RefundResponse;
+import com.jobbootcamp.trade.domain.dto.RefundStatusResponse;
 import com.jobbootcamp.trade.infrastructure.PaymentRequestMapper;
 import com.jobbootcamp.trade.infrastructure.RefundMapper;
 import com.jobbootcamp.trade.infrastructure.TradeOrderMapper;
@@ -92,6 +94,24 @@ public class RefundService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "退款单不存在");
         }
         return toResponse(refund);
+    }
+
+    public RefundStatusResponse getByOrder(Long userId, Long orderId) {
+        TradeOrder order = orderMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
+        }
+        Refund refund = refundMapper.selectOne(Wrappers.<Refund>lambdaQuery()
+                .eq(Refund::getOrderId, orderId)
+                .eq(Refund::getKind, "USER")
+                .orderByDesc(Refund::getId)
+                .last("LIMIT 1"));
+        if (refund == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "订单还没有退款单");
+        }
+        return new RefundStatusResponse(refund.getId(), refund.getOrderId(), refund.getKind(),
+                refund.getState(), refund.getAmountCent(), refund.getProgressN(), refund.getProgressD(),
+                refund.getChannelRefundNo(), refund.getAcceptedAt(), refund.getUpdatedAt());
     }
 
     public RefundResponse toResponse(Refund refund) {

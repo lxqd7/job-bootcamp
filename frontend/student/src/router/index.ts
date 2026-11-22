@@ -21,6 +21,9 @@ import CheckoutView from '../views/CheckoutView.vue'
 import OrderListView from '../views/OrderListView.vue'
 import OrderDetailView from '../views/OrderDetailView.vue'
 import PaymentView from '../views/PaymentView.vue'
+import RefundApplyView from '../views/RefundApplyView.vue'
+import RefundStatusView from '../views/RefundStatusView.vue'
+import RefundDetailView from '../views/RefundDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -43,7 +46,10 @@ const router = createRouter({
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { roles: ['STUDENT'] } },
     { path: '/orders', name: 'orders', component: OrderListView, meta: { roles: ['STUDENT'] } },
     { path: '/orders/:id/pay', name: 'order-pay', component: PaymentView, meta: { roles: ['STUDENT'] } },
+    { path: '/orders/:id/refund', name: 'refund-apply', component: RefundApplyView, meta: { roles: ['STUDENT'] } },
     { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, meta: { roles: ['STUDENT'] } },
+    { path: '/refund-applications/:requestId', name: 'refund-application', component: RefundStatusView, meta: { roles: ['STUDENT'] } },
+    { path: '/refunds/:id', name: 'refund-detail', component: RefundDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/me', name: 'profile', component: ProfileView, meta: { roles: ['STUDENT'] } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { public: true } }
   ]

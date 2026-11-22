@@ -386,3 +386,38 @@ export interface UserCouponView {
   usedOrderId: string | null
   createdAt: string
 }
+export interface RefundIntentView {
+  requestId: string
+  orderId: string
+  acceptedAt: string
+  sequence: number
+  state: string
+  reason: string | null
+  completedCount: number
+  totalCount: number
+}
+
+export interface RefundStatus {
+  refundId: string
+  orderId: string
+  kind: string
+  state: string
+  amountCent: number
+  progressN: number | null
+  progressD: number | null
+  channelRefundNo: string | null
+  acceptedAt: string
+  updatedAt: string
+}
+
+export interface RefundDetail {
+  id: string
+  refundNo: string
+  orderId: string
+  paymentId: string
+  kind: string
+  state: string
+  amountCent: number
+  acceptedAt: string
+  channelRefundNo: string | null
+}

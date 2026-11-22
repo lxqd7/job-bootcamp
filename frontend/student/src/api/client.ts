@@ -17,6 +17,9 @@ import type {
   PointsLedgerItem,
   PointsSummary,
   ProgressResult,
+  RefundDetail,
+  RefundIntentView,
+  RefundStatus,
   RouteDetail,
   RouteSummary,
   SignResult,
@@ -316,6 +319,43 @@ export async function cancelOrder(orderId: string): Promise<OrderResponse> {
   const { data } = await http.post<ApiEnvelope<OrderResponse>>(`/api/v1/orders/${orderId}/cancel`)
   if (data.code !== 'OK') {
     throw new Error(data.message || '取消订单失败')
+  }
+  return data.data
+}
+
+export async function applyRefund(orderId: string, reason?: string): Promise<RefundIntentView> {
+  const { data } = await http.post<ApiEnvelope<RefundIntentView>>(
+    `/api/v1/orders/${orderId}/refund-applications`,
+    { reason: reason || null }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '退款申请提交失败')
+  }
+  return data.data
+}
+
+export async function loadRefundApplication(requestId: string): Promise<RefundIntentView> {
+  const { data } = await http.get<ApiEnvelope<RefundIntentView>>(
+    `/api/v1/refund-applications/${requestId}`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '退款申请查询失败')
+  }
+  return data.data
+}
+
+export async function loadRefundByOrder(orderId: string): Promise<RefundStatus> {
+  const { data } = await http.get<ApiEnvelope<RefundStatus>>(`/api/v1/refunds/by-order/${orderId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '退款单查询失败')
+  }
+  return data.data
+}
+
+export async function loadRefund(refundId: string): Promise<RefundDetail> {
+  const { data } = await http.get<ApiEnvelope<RefundDetail>>(`/api/v1/refunds/${refundId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '退款单查询失败')
   }
   return data.data
 }
