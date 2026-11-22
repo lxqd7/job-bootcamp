@@ -13,6 +13,7 @@ public class Refund {
     private Long id;
     private String refundNo;
     private Long orderId;
+    private Long userId;
     private Long paymentId;
     private Long intentId;
     private String kind;
@@ -24,6 +25,8 @@ public class Refund {
     private Long systemReturnPaymentId;
     private String channelRefundNo;
     private String qualification;
+    private Long tradeStateVersion;
+    private Long sourceVersion;
     private Long activeOrderId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -34,6 +37,8 @@ public class Refund {
     public void setRefundNo(String refundNo) { this.refundNo = refundNo; }
     public Long getOrderId() { return orderId; }
     public void setOrderId(Long orderId) { this.orderId = orderId; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
     public Long getPaymentId() { return paymentId; }
     public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
     public Long getIntentId() { return intentId; }
@@ -56,6 +61,10 @@ public class Refund {
     public void setChannelRefundNo(String channelRefundNo) { this.channelRefundNo = channelRefundNo; }
     public String getQualification() { return qualification; }
     public void setQualification(String qualification) { this.qualification = qualification; }
+    public Long getTradeStateVersion() { return tradeStateVersion; }
+    public void setTradeStateVersion(Long tradeStateVersion) { this.tradeStateVersion = tradeStateVersion; }
+    public Long getSourceVersion() { return sourceVersion; }
+    public void setSourceVersion(Long sourceVersion) { this.sourceVersion = sourceVersion; }
     public Long getActiveOrderId() { return activeOrderId; }
     public void setActiveOrderId(Long activeOrderId) { this.activeOrderId = activeOrderId; }
     public LocalDateTime getCreatedAt() { return createdAt; }

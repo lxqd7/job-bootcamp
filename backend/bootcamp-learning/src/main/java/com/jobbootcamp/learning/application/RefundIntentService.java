@@ -195,10 +195,11 @@ public class RefundIntentService {
     }
 
     private RefundIntentView qualify(RefundIntent intent) {
-        RefundQualificationResponse result = tradeClient.qualify(new RefundQualificationRequest(
+        RefundQualificationRequest request = new RefundQualificationRequest(
                 intent.getId(), intent.getOrderId(), intent.getUserId(), intent.getSnapshotHash(),
                 intent.getAcceptedAt().toInstant(ZoneOffset.UTC).toString(),
-                intent.getCompletedCount(), intent.getTotalCount()));
+                intent.getCompletedCount(), intent.getTotalCount(), intent.getSourceVersion());
+        RefundQualificationResponse result = tradeClient.qualify(request);
         if (result == null) {
             return view(intent);
         }
@@ -209,6 +210,13 @@ public class RefundIntentService {
                 intent.setState("PROCESSING");
                 intent.setUpdatedAt(now);
             });
+            try {
+                tradeClient.start(request);
+            } catch (RuntimeException e) {
+                // 受理事实已保存；退款启动由后续退款流程恢复，不能把 202 申请变成失败。
+            }
+            RefundIntent latest = intentMapper.selectById(intent.getId());
+            return view(latest == null ? intent : latest);
         } else if ("REJECTED".equals(result.state())) {
             restoreAndReject(intent, result.reason(), now);
         } else {

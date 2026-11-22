@@ -21,7 +21,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(studentAuthInterceptor)
                 .addPathPatterns("/api/v1/trade/**", "/api/v1/orders/**",
                         "/api/v1/refunds/**", "/api/v1/dev/payments/**", "/dev/payments/**",
-                        "/api/v1/admin/orders/**");
+                        "/api/v1/dev/refunds/**", "/api/v1/admin/orders/**",
+                        "/api/v1/admin/refunds/**");
         registry.addInterceptor(internalAuthInterceptor).addPathPatterns("/int/v1/**");
     }
 }

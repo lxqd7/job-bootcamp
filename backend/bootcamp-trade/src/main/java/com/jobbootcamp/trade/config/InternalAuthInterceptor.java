@@ -28,6 +28,8 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
                 ? "refunds:basis"
                 : uri.contains("/refunds/qualify")
                 ? "refunds:qualify"
+                : uri.contains("/refunds/start")
+                ? "refunds:start"
                 : "orders:status";
         try {
             InternalTokenCodec.verify(secret, request.getHeader(SERVICE_TOKEN_HEADER),

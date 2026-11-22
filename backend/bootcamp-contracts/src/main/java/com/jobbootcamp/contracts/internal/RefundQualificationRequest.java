@@ -7,6 +7,7 @@ public record RefundQualificationRequest(
         String snapshotHash,
         String acceptedAt,
         int completedCount,
-        int totalCount
+        int totalCount,
+        Long sourceVersion
 ) {
 }

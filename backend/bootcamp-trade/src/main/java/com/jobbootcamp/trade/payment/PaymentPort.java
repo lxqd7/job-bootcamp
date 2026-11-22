@@ -15,6 +15,13 @@ public interface PaymentPort {
 
     RefundResult refund(PaymentRequest request, String refundNo, long amountCent);
 
+    /**
+     * 退款结果未知时先查询，不直接重复提交；默认返回 UNKNOWN，真实适配器必须覆盖。
+     */
+    default RefundQueryResult queryRefund(PaymentRequest request, String refundNo) {
+        return new RefundQueryResult("UNKNOWN", null, "NOT_IMPLEMENTED");
+    }
+
     boolean verify(String rawBody, String signature);
 
     record CreatedPayment(String payAction, String state) {
@@ -24,5 +31,8 @@ public interface PaymentPort {
     }
 
     record RefundResult(String state, String channelRefundNo, String code) {
+    }
+
+    record RefundQueryResult(String state, String channelRefundNo, String code) {
     }
 }

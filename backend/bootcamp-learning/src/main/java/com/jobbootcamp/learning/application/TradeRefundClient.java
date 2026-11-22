@@ -6,6 +6,7 @@ import com.jobbootcamp.contracts.internal.InternalTokenCodec;
 import com.jobbootcamp.contracts.internal.RefundBasisResponse;
 import com.jobbootcamp.contracts.internal.RefundQualificationRequest;
 import com.jobbootcamp.contracts.internal.RefundQualificationResponse;
+import com.jobbootcamp.contracts.internal.RefundStartResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -28,13 +29,16 @@ public class TradeRefundClient {
     private final RestClient restClient;
     private final String basisBaseUrl;
     private final String qualifyUrl;
+    private final String startUrl;
     private final String internalSecret;
 
     public TradeRefundClient(@Value("${app.trade.refund-basis-url}") String basisBaseUrl,
                              @Value("${app.trade.refund-qualify-url}") String qualifyUrl,
+                             @Value("${app.trade.refund-start-url}") String startUrl,
                              @Value("${app.internal.secret}") String internalSecret) {
         this.basisBaseUrl = basisBaseUrl;
         this.qualifyUrl = qualifyUrl;
+        this.startUrl = startUrl;
         this.internalSecret = internalSecret;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(500));
@@ -72,6 +76,21 @@ public class TradeRefundClient {
             throw mapFailure(e);
         } catch (ResourceAccessException e) {
             throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "交易退款资格服务暂时不可用");
+        }
+    }
+
+    public RefundStartResponse start(RefundQualificationRequest request) {
+        String token = token("refunds:start");
+        try {
+            return restClient.post().uri(startUrl)
+                    .header(SERVICE_TOKEN_HEADER, token)
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .body(request)
+                    .retrieve().body(RefundStartResponse.class);
+        } catch (RestClientResponseException e) {
+            throw mapFailure(e);
+        } catch (ResourceAccessException e) {
+            throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "交易退款启动服务暂时不可用");
         }
     }
 

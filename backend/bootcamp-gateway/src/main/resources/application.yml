@@ -19,7 +19,7 @@ spring:
             - id: trade-service
               uri: http://127.0.0.1:18084
               predicates:
-                - Path=/api/v1/trade/**,/api/v1/orders/**,/api/v1/refunds/**,/api/v1/dev/payments/**,/dev/payments/**,/callbacks/payments/**,/api/v1/admin/orders/**
+                - Path=/api/v1/trade/**,/api/v1/orders/**,/api/v1/refunds/**,/api/v1/dev/payments/**,/dev/payments/**,/callbacks/payments/**,/api/v1/dev/refunds/**,/api/v1/admin/orders/**,/api/v1/admin/refunds/**
             - id: learning-service
               uri: http://127.0.0.1:18083
               predicates:

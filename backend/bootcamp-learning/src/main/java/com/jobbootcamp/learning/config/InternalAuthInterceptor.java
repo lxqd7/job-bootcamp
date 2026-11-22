@@ -23,7 +23,11 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String operation = request.getRequestURI().startsWith("/int/v1/free-claims")
+        String operation = request.getRequestURI().startsWith("/int/v1/sources/revoke")
+                ? "sources:revoke"
+                : request.getRequestURI().startsWith("/int/v1/sources/restore")
+                ? "sources:restore"
+                : request.getRequestURI().startsWith("/int/v1/free-claims")
                 ? "free-claims:create"
                 : request.getRequestURI().startsWith("/int/v1/completion-events")
                 ? "completion-events:read"

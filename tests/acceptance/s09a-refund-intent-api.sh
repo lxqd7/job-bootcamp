@@ -159,6 +159,14 @@ db() {
   MYSQL_PWD="$DB_PASSWORD" "$MYSQL_BIN" -h127.0.0.1 -uroot -N -B -e "$1"
 }
 
+set_refund_scenario() {
+  local order_id="$1" outcome="$2" status
+  status=$(curl -s -o "$TMP_DIR/scenario-$order_id.json" -w '%{http_code}' -X POST \
+    -H 'Content-Type: application/json' -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -d "{\"outcome\":\"$outcome\"}" "$BASE/api/v1/dev/refunds/$order_id/scenario")
+  expect_status 200 "$status" "set refund scenario $outcome" "$TMP_DIR/scenario-$order_id.json"
+}
+
 create_route() {
   local title="$1" course_a="$2" out="$3"
   local status revision
@@ -230,6 +238,7 @@ STATUS=$(curl -s -o "$TMP_DIR/delete-lesson.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   "$BASE/api/v1/admin/lessons/$DELETE_LESSON?revision=$DELETE_REV")
 expect_status 200 "$STATUS" "delete completed lesson after purchase" "$TMP_DIR/delete-lesson.json"
+set_refund_scenario "$ORDER_A" UNKNOWN
 STATUS=$(apply_refund "$ORDER_A" a)
 expect_status 202 "$STATUS" "refund application accepted" "$TMP_DIR/refund-a.json"
 REQUEST_A=$(field data.requestId < "$TMP_DIR/refund-a.json")
@@ -285,6 +294,7 @@ buy_course "$COURSE_F" f
 ORDER_F=$ORDER_ID
 db "UPDATE bc_trade.payment SET paid_at=UTC_TIMESTAMP(3)-INTERVAL 167 HOUR WHERE order_id=$ORDER_F AND status='SUCCEEDED'"
 db "UPDATE bc_trade.trade_order SET paid_at=UTC_TIMESTAMP(3)-INTERVAL 167 HOUR WHERE id=$ORDER_F"
+set_refund_scenario "$ORDER_F" UNKNOWN
 STATUS=$(apply_refund "$ORDER_F" f)
 expect_status 202 "$STATUS" "near-deadline refund accepted" "$TMP_DIR/refund-f.json"
 expect_value "PROCESSING" "$(field data.state < "$TMP_DIR/refund-f.json")" "refund F within window qualified"
@@ -297,6 +307,7 @@ ORDER_D=$ORDER_ID
 create_route "S09A route D $STAMP" "$COURSE_D" "$TMP_DIR/route-d.json"
 route_order "d-pending"
 ROUTE_ORDER_D=$ROUTE_ORDER_ID
+set_refund_scenario "$ORDER_D" UNKNOWN
 STATUS=$(apply_refund "$ORDER_D" d)
 expect_status 202 "$STATUS" "refund D accepted" "$TMP_DIR/refund-d.json"
 expect_value "PROCESSING" "$(field data.state < "$TMP_DIR/refund-d.json")" "pending dependent closed and refund qualified"

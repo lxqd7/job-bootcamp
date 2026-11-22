@@ -38,6 +38,7 @@ app:
   trade:
     refund-basis-url: ${TRADE_REFUND_BASIS_URL:http://127.0.0.1:18084/int/v1/orders}
     refund-qualify-url: ${TRADE_REFUND_QUALIFY_URL:http://127.0.0.1:18084/int/v1/refunds/qualify}
+    refund-start-url: ${TRADE_REFUND_START_URL:http://127.0.0.1:18084/int/v1/refunds/start}
   outbox:
     transport: ${OUTBOX_TRANSPORT:none}
     exchange: ${RABBIT_EXCHANGE:bc.domain.v1}
