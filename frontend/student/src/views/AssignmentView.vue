@@ -11,9 +11,13 @@ import {
   loadAssignment,
   loadAssignmentProgress,
   loadAttempt,
+  loadBenefitAssignment,
+  loadBenefitProgress,
+  loadBenefitSubmissions,
   loadSubmissions,
   saveDraft,
   startAttempt as startAttemptApi,
+  startBenefitAttempt,
   submitAttempt
 } from '../api/client'
 import { describeAuthError } from '../auth/session'
@@ -23,13 +27,15 @@ import type {
   ChoiceBody,
   CodeBody,
   StudentAssignment,
+  StudentBenefit,
   SubmissionSummary
 } from '../api/types'
 
 const route = useRoute()
 const router = useRouter()
 
-const assignment = ref<StudentAssignment | null>(null)
+const benefitMode = computed(() => route.name === 'benefit-assignment')
+const assignment = ref<StudentAssignment | StudentBenefit | null>(null)
 const progress = ref<AssignmentProgress | null>(null)
 const history = ref<SubmissionSummary[]>([])
 const attempt = ref<AttemptView | null>(null)
@@ -53,12 +59,22 @@ let submitSignature = ''
 
 const assignmentId = computed(() => String(route.params.id))
 const kind = computed(() => assignment.value?.kind ?? null)
+const isCodeKind = computed(() => Boolean(kind.value?.endsWith('_CODE')))
+const isChoiceKind = computed(() => Boolean(kind.value?.endsWith('_CHOICE')))
 const choiceBody = computed<ChoiceBody | null>(() =>
-  kind.value === 'CHAPTER_CHOICE' ? (assignment.value?.publicBody as ChoiceBody | null) : null
+  isChoiceKind.value ? (assignment.value?.publicBody as ChoiceBody | null) : null
 )
 const codeBody = computed<CodeBody | null>(() =>
-  kind.value === 'COURSE_CODE' ? (assignment.value?.publicBody as CodeBody | null) : null
+  isCodeKind.value ? (assignment.value?.publicBody as CodeBody | null) : null
 )
+const sourceLink = computed(() => {
+  if (!assignment.value) return '/courses'
+  if (benefitMode.value) {
+    const benefit = assignment.value as StudentBenefit
+    return `/routes/${benefit.routeId}/benefits?courseId=${benefit.courseId}`
+  }
+  return `/learning/courses/${assignment.value.courseId}`
+})
 const codeSlots = computed(() =>
   codeBody.value?.segments.filter(segment => Boolean(segment.slotId)) ?? []
 )
@@ -123,7 +139,7 @@ function destroyEditors(): void {
 
 function mountEditors(): void {
   destroyEditors()
-  if (!canAnswer.value || kind.value !== 'COURSE_CODE') return
+  if (!canAnswer.value || !isCodeKind.value) return
   for (const segment of codeSlots.value) {
     const slotId = segment.slotId as string
     const host = hostFor(slotId)
@@ -151,7 +167,7 @@ function mountEditors(): void {
 }
 
 function payload(): Record<string, unknown> {
-  if (kind.value === 'COURSE_CODE') {
+  if (isCodeKind.value) {
     return { ...codeValues.value }
   }
   return JSON.parse(JSON.stringify(answers.value)) as Record<string, unknown>
@@ -160,7 +176,7 @@ function payload(): Record<string, unknown> {
 function applyAttempt(view: AttemptView): void {
   attempt.value = view
   const draft = view.draft ?? {}
-  if (kind.value === 'COURSE_CODE') {
+  if (isCodeKind.value) {
     const values: Record<string, string> = {}
     for (const segment of codeSlots.value) {
       const slotId = segment.slotId as string
@@ -183,7 +199,9 @@ async function start(): Promise<void> {
   errorMessage.value = ''
   statusMessage.value = ''
   try {
-    const view = await startAttemptApi(assignment.value.id)
+    const view = benefitMode.value
+      ? await startBenefitAttempt(assignment.value.id)
+      : await startAttemptApi(assignment.value.id)
     applyAttempt(view)
     statusMessage.value = '已开始本次作答。'
     await refreshProgress()
@@ -277,11 +295,11 @@ async function submit(): Promise<void> {
     errorMessage.value = '草稿存在冲突，请先载入服务器最新草稿或用本地内容覆盖。'
     return
   }
-  if (kind.value === 'COURSE_CODE' && !hasCode.value) {
+  if (isCodeKind.value && !hasCode.value) {
     errorMessage.value = '代码不能全部为空，请至少补全一个 slot。'
     return
   }
-  if (kind.value === 'CHAPTER_CHOICE' && unansweredCount.value > 0 && confirmUnanswered.value === 0) {
+  if (isChoiceKind.value && unansweredCount.value > 0 && confirmUnanswered.value === 0) {
     confirmUnanswered.value = unansweredCount.value
     return
   }
@@ -315,8 +333,12 @@ async function submit(): Promise<void> {
 async function refreshProgress(): Promise<void> {
   if (!assignment.value) return
   try {
-    progress.value = await loadAssignmentProgress(assignment.value.id)
-    const page = await loadSubmissions(assignment.value.id)
+    progress.value = benefitMode.value
+      ? await loadBenefitProgress(assignment.value.id)
+      : await loadAssignmentProgress(assignment.value.id)
+    const page = benefitMode.value
+      ? await loadBenefitSubmissions(assignment.value.id)
+      : await loadSubmissions(assignment.value.id)
     history.value = page.items
   } catch (error) {
     errorMessage.value = describeAuthError(error)
@@ -333,11 +355,11 @@ async function load(): Promise<void> {
   answers.value = {}
   codeValues.value = {}
   try {
-    assignment.value = await loadAssignment(assignmentId.value)
-    progress.value = await loadAssignmentProgress(assignmentId.value)
-    const page = await loadSubmissions(assignmentId.value)
-    history.value = page.items
-    if (progress.value.openAttemptId) {
+    assignment.value = benefitMode.value
+      ? await loadBenefitAssignment(assignmentId.value)
+      : await loadAssignment(assignmentId.value)
+    await refreshProgress()
+    if (progress.value?.openAttemptId) {
       applyAttempt(await loadAttempt(progress.value.openAttemptId))
     }
   } catch (error) {
@@ -388,7 +410,7 @@ onBeforeRouteLeave(async () => {
   return true
 })
 
-watch(() => route.params.id, load)
+watch(() => route.fullPath, load)
 onMounted(() => {
   void load()
   window.addEventListener('beforeunload', handleBeforeUnload)
@@ -403,11 +425,11 @@ onBeforeUnmount(() => {
 <template>
   <AppShell>
     <section class="head">
-      <p class="stage">正式作业</p>
-      <h1>{{ kind === 'COURSE_CODE' ? '课程代码补全' : '章节自测' }}</h1>
+      <p class="stage">{{ benefitMode ? '路线福利题' : '正式作业' }}</p>
+      <h1>{{ isCodeKind ? (benefitMode ? '福利代码题' : '课程代码补全') : (benefitMode ? '福利选择题' : '章节自测') }}</h1>
       <p v-if="assignment" class="lead">
         当前版本 v{{ assignment.currentVersionNo ?? '—' }}。
-        <RouterLink :to="`/learning/courses/${assignment.courseId}`">返回课程学习</RouterLink>
+        <RouterLink :to="sourceLink">{{ benefitMode ? '返回路线福利' : '返回课程学习' }}</RouterLink>
       </p>
     </section>
 
@@ -519,7 +541,7 @@ onBeforeUnmount(() => {
             {{ submitting ? '提交中…' : '提交本次作答' }}
           </button>
           <span class="fine-print">
-            {{ kind === 'COURSE_CODE' ? '提交后生成 AI 点评，允许部分 slot 为空，但不能全空。' : '未答题可提交，按 0 分计。' }}
+            {{ isCodeKind ? '提交后生成 AI 点评，允许部分 slot 为空，但不能全空。' : '未答题可提交，按 0 分计。' }}
           </span>
         </template>
       </div>

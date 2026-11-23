@@ -19,6 +19,7 @@ import MyCouponsView from '../views/MyCouponsView.vue'
 import LearningView from '../views/LearningView.vue'
 import AssignmentView from '../views/AssignmentView.vue'
 import SubmissionDetailView from '../views/SubmissionDetailView.vue'
+import RouteBenefitsView from '../views/RouteBenefitsView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import OrderListView from '../views/OrderListView.vue'
 import OrderDetailView from '../views/OrderDetailView.vue'
@@ -37,6 +38,7 @@ const router = createRouter({
     { path: '/courses/:id', name: 'course-detail', component: CourseDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/routes', name: 'routes', component: RouteListView, meta: { roles: ['STUDENT'] } },
     { path: '/routes/:id', name: 'route-detail', component: RouteDetailView, meta: { roles: ['STUDENT'] } },
+    { path: '/routes/:id/benefits', name: 'route-benefits', component: RouteBenefitsView, meta: { roles: ['STUDENT'] } },
     { path: '/sign-in', name: 'sign-in', component: SignInView, meta: { roles: ['STUDENT'] } },
     { path: '/me/points', name: 'points', component: PointsView, meta: { roles: ['STUDENT'] } },
     { path: '/boards', name: 'boards', component: BoardView, meta: { roles: ['STUDENT'] } },
@@ -46,6 +48,7 @@ const router = createRouter({
     { path: '/me/coupons', name: 'my-coupons', component: MyCouponsView, meta: { roles: ['STUDENT'] } },
     { path: '/learning/courses/:id', name: 'learning', component: LearningView, meta: { roles: ['STUDENT'] } },
     { path: '/assignments/:id', name: 'assignment', component: AssignmentView, meta: { roles: ['STUDENT'] } },
+    { path: '/benefit-assignments/:id', name: 'benefit-assignment', component: AssignmentView, meta: { roles: ['STUDENT'] } },
     { path: '/submissions/:id', name: 'submission-detail', component: SubmissionDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { roles: ['STUDENT'] } },
     { path: '/orders', name: 'orders', component: OrderListView, meta: { roles: ['STUDENT'] } },

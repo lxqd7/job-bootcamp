@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import AppShell from '../components/AppShell.vue'
 import {
   loadAssignment,
+  loadBenefitAssignment,
   loadReview,
   loadSubmission
 } from '../api/client'
@@ -13,13 +14,14 @@ import type {
   CodeBody,
   ReviewView,
   StudentAssignment,
+  StudentBenefit,
   SubmissionDetail
 } from '../api/types'
 
 const route = useRoute()
 
 const submission = ref<SubmissionDetail | null>(null)
-const assignment = ref<StudentAssignment | null>(null)
+const assignment = ref<StudentAssignment | StudentBenefit | null>(null)
 const review = ref<ReviewView | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
@@ -29,11 +31,19 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 let pollStartedAt = 0
 
 const submissionId = computed(() => String(route.params.id))
+const isBenefit = computed(() => Boolean(submission.value?.kind.startsWith('BENEFIT')))
+const isCodeKind = computed(() => Boolean(submission.value?.kind.endsWith('_CODE')))
+const isChoiceKind = computed(() => Boolean(submission.value?.kind.endsWith('_CHOICE')))
+const returnLink = computed(() =>
+  submission.value
+    ? (isBenefit.value ? `/benefit-assignments/${submission.value.assignmentId}` : `/assignments/${submission.value.assignmentId}`)
+    : '/courses'
+)
 const choiceBody = computed<ChoiceBody | null>(() =>
-  submission.value?.kind === 'CHAPTER_CHOICE' ? (submission.value.publicBody as ChoiceBody) : null
+  isChoiceKind.value ? (submission.value?.publicBody as ChoiceBody) : null
 )
 const codeBody = computed<CodeBody | null>(() =>
-  submission.value?.kind === 'COURSE_CODE' ? (submission.value.publicBody as CodeBody) : null
+  isCodeKind.value ? (submission.value?.publicBody as CodeBody) : null
 )
 const activeReview = computed(() => {
   const status = review.value?.taskStatus
@@ -146,7 +156,7 @@ function schedulePoll(): void {
 }
 
 async function refreshReview(): Promise<void> {
-  if (!submission.value || submission.value.kind !== 'COURSE_CODE') return
+  if (!submission.value || !submission.value.kind.endsWith('_CODE')) return
   try {
     const result = await loadReview(submission.value.id)
     review.value = result
@@ -172,9 +182,13 @@ async function load(): Promise<void> {
     try {
       assignment.value = await loadAssignment(submission.value.assignmentId)
     } catch {
-      assignment.value = null
+      try {
+        assignment.value = await loadBenefitAssignment(submission.value.assignmentId)
+      } catch {
+        assignment.value = null
+      }
     }
-    if (submission.value.kind === 'COURSE_CODE') {
+    if (isCodeKind.value) {
       pollStartedAt = Date.now()
       await refreshReview()
     }
@@ -195,10 +209,10 @@ onBeforeUnmount(() => {
   <AppShell>
     <section class="head">
       <p class="stage">提交详情</p>
-      <h1>{{ submission ? (submission.kind === 'COURSE_CODE' ? '代码点评记录' : '章节自测记录') : '提交记录' }}</h1>
+      <h1>{{ submission ? (isCodeKind ? (isBenefit ? '福利代码点评' : '代码点评记录') : (isBenefit ? '福利自测记录' : '章节自测记录')) : '提交记录' }}</h1>
       <p v-if="submission" class="lead">
         提交于 {{ formatTime(submission.submittedAt) }} · 绑定版本 v{{ submission.versionNo }}
-        <template v-if="assignment"> · <RouterLink :to="`/assignments/${submission.assignmentId}`">返回作业</RouterLink></template>
+        · <RouterLink :to="returnLink">返回作业</RouterLink>
       </p>
     </section>
 
@@ -208,7 +222,7 @@ onBeforeUnmount(() => {
     <template v-else-if="submission">
       <p v-if="versionHint" class="version-hint">{{ versionHint }}</p>
 
-      <section v-if="submission.kind === 'CHAPTER_CHOICE'" class="score-line">
+      <section v-if="isChoiceKind" class="score-line">
         <span>本次成绩</span>
         <strong>{{ submission.score }} / {{ submission.maxScore }}</strong>
       </section>
@@ -286,7 +300,7 @@ onBeforeUnmount(() => {
             <strong>点评失败</strong>
             <p>{{ safeErrorText(review?.safeErrorCode ?? null) }}</p>
             <p class="muted">提交记录、答案和参考实现已保留；本次任务不会自动重试，也没有单独的重试按钮。</p>
-            <RouterLink v-if="submission" class="btn small-btn" :to="`/assignments/${submission.assignmentId}`">
+            <RouterLink v-if="submission" class="btn small-btn" :to="returnLink">
               返回作业重新作答
             </RouterLink>
           </div>

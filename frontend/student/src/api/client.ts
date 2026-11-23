@@ -31,6 +31,7 @@ import type {
   AttemptView,
   ReviewView,
   StudentAssignment,
+  StudentBenefit,
   SubmissionDetail,
   SubmissionSummary
 } from './types'
@@ -518,4 +519,48 @@ export async function loadReview(id: string): Promise<ReviewView> {
 
 export function httpStatus(error: unknown): number | null {
   return (error as { response?: { status?: number } }).response?.status ?? null
+}
+
+export async function loadRouteBenefits(routeId: string, courseId: string): Promise<StudentBenefit[]> {
+  const { data } = await http.get<ApiEnvelope<StudentBenefit[]>>(
+    `/api/v1/routes/${routeId}/benefit-assignments`,
+    { params: { courseId: Number(courseId) } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '福利题列表加载失败')
+  return data.data
+}
+
+export async function loadBenefitAssignment(id: string): Promise<StudentBenefit> {
+  const { data } = await http.get<ApiEnvelope<StudentBenefit>>(`/api/v1/benefit-assignments/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '福利题加载失败')
+  return data.data
+}
+
+export async function startBenefitAttempt(id: string): Promise<AttemptView> {
+  const { data } = await http.post<ApiEnvelope<AttemptView>>(
+    `/api/v1/benefit-assignments/${id}/attempts`
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '开始作答失败')
+  return data.data
+}
+
+export async function loadBenefitProgress(id: string): Promise<AssignmentProgress> {
+  const { data } = await http.get<ApiEnvelope<AssignmentProgress>>(
+    `/api/v1/benefit-assignments/${id}/progress`
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '福利题成绩加载失败')
+  return data.data
+}
+
+export async function loadBenefitSubmissions(
+  id: string,
+  page = 1,
+  pageSize = 50
+): Promise<PageResponse<SubmissionSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<SubmissionSummary>>>(
+    `/api/v1/benefit-assignments/${id}/submissions`,
+    { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '福利题提交历史加载失败')
+  return data.data
 }

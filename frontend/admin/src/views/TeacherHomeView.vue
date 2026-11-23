@@ -23,6 +23,7 @@ const me = currentMe
         重试点评或跨课程查看的入口；教师调离课程后旧的读取请求会被服务端拒绝。
       </p>
       <RouterLink class="btn" to="/teacher/submissions">查看学生作答</RouterLink>
+      <RouterLink class="btn" to="/teacher/benefits">维护福利题</RouterLink>
     </section>
   </AppShell>
 </template>

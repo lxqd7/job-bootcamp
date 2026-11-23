@@ -70,6 +70,7 @@ onMounted(async () => {
                 <th>课程</th>
                 <th>单买价</th>
                 <th>套餐内分摊</th>
+                <th>福利题</th>
               </tr>
             </thead>
             <tbody>
@@ -78,6 +79,11 @@ onMounted(async () => {
                 <td>{{ member.title }}</td>
                 <td>{{ member.isFree ? '免费' : money(member.unitPriceCent) }}</td>
                 <td>{{ member.isFree ? '0' : money(member.allocatedCent) }}</td>
+                <td>
+                  <RouterLink :to="`/routes/${detail.id}/benefits?courseId=${member.courseId}`">
+                    查看福利
+                  </RouterLink>
+                </td>
               </tr>
             </tbody>
           </table>

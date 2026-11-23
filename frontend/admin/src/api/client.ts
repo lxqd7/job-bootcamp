@@ -10,7 +10,10 @@ import type {
   CouponRuleView,
   PageResponse,
   TeacherAssignmentItem,
+  TeacherBenefitSummary,
+  TeacherBenefitView,
   TeacherCourseItem,
+  TeacherRouteItem,
   TeacherSubmissionSummary,
   TeacherSubmissionView
 } from './types'
@@ -230,4 +233,62 @@ export async function loadTeacherSubmission(id: string): Promise<TeacherSubmissi
   const { data } = await http.get<ApiEnvelope<TeacherSubmissionView>>(`/api/v1/teacher/submissions/${id}`)
   if (data.code !== 'OK') throw new Error(data.message || '作答详情加载失败')
   return data.data
+}
+
+export async function loadTeacherRoutes(): Promise<TeacherRouteItem[]> {
+  const { data } = await http.get<ApiEnvelope<TeacherRouteItem[]>>('/api/v1/teacher/routes')
+  if (data.code !== 'OK') throw new Error(data.message || '负责路线加载失败')
+  return data.data
+}
+
+export async function loadTeacherBenefits(courseId: string): Promise<PageResponse<TeacherBenefitSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<TeacherBenefitSummary>>>(
+    '/api/v1/teacher/benefit-assignments',
+    { params: { courseId: Number(courseId), page: 1, pageSize: 100 } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '福利题列表加载失败')
+  return data.data
+}
+
+export async function loadTeacherBenefit(id: string): Promise<TeacherBenefitView> {
+  const { data } = await http.get<ApiEnvelope<TeacherBenefitView>>(`/api/v1/teacher/benefit-assignments/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '福利题加载失败')
+  return data.data
+}
+
+export async function createTeacherBenefit(payload: Record<string, unknown>): Promise<TeacherBenefitView> {
+  const { data } = await http.post<ApiEnvelope<TeacherBenefitView>>('/api/v1/teacher/benefit-assignments', payload)
+  if (data.code !== 'OK') throw new Error(data.message || '福利题草稿创建失败')
+  return data.data
+}
+
+export async function updateTeacherBenefit(id: string, payload: Record<string, unknown>): Promise<TeacherBenefitView> {
+  const { data } = await http.patch<ApiEnvelope<TeacherBenefitView>>(`/api/v1/teacher/benefit-assignments/${id}`, payload)
+  if (data.code !== 'OK') throw new Error(data.message || '福利题草稿保存失败')
+  return data.data
+}
+
+export async function publishTeacherBenefit(id: string, revision: number): Promise<TeacherBenefitView> {
+  const { data } = await http.post<ApiEnvelope<TeacherBenefitView>>(
+    `/api/v1/teacher/benefit-assignments/${id}/publish`,
+    { revision }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '福利题发布失败')
+  return data.data
+}
+
+export async function offlineTeacherBenefit(id: string, revision: number): Promise<TeacherBenefitView> {
+  const { data } = await http.post<ApiEnvelope<TeacherBenefitView>>(
+    `/api/v1/teacher/benefit-assignments/${id}/offline`,
+    { revision }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '福利题下架失败')
+  return data.data
+}
+
+export async function deleteTeacherBenefit(id: string, revision: number): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<null>>(`/api/v1/teacher/benefit-assignments/${id}`, {
+    params: { revision }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '福利题删除失败')
 }

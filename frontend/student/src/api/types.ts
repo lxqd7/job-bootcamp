@@ -422,7 +422,7 @@ export interface RefundDetail {
   channelRefundNo: string | null
 }
 
-export type AssignmentKind = 'CHAPTER_CHOICE' | 'COURSE_CODE'
+export type AssignmentKind = 'CHAPTER_CHOICE' | 'COURSE_CODE' | 'BENEFIT_CHOICE' | 'BENEFIT_CODE'
 
 export interface ChoiceOption {
   id: string
@@ -538,4 +538,17 @@ export interface ReviewView {
   feedback: AiFeedback | null
   safeErrorCode: string | null
   isMock: boolean | null
+}
+
+export interface StudentBenefit {
+  id: string
+  kind: AssignmentKind
+  courseId: string
+  status: string
+  currentVersionNo: number | null
+  publicBody: AssignmentBody | null
+  routeId: string
+  epochId: string
+  currentVersionSubmitted: boolean
+  openAttemptId: string | null
 }

@@ -402,3 +402,43 @@ export interface TeacherSubmissionView {
   submission: TeacherSubmissionDetail
   review: ReviewView
 }
+
+export interface TeacherRouteItem {
+  id: string
+  title: string
+  status: string
+  priceCent: number
+  memberCount: number
+}
+
+export interface BoundRouteView {
+  routeId: string
+  epochId: string
+  boundAt: string
+}
+
+export interface TeacherBenefitSummary {
+  id: string
+  kind: string
+  courseId: string
+  status: string
+  currentVersionNo: number | null
+  revision: number
+  updatedAt: string
+  routeIds: string[]
+}
+
+export interface TeacherBenefitView {
+  id: string
+  kind: string
+  courseId: string
+  status: string
+  currentVersionNo: number | null
+  draftPublicBody: unknown
+  draftAnswerBody: unknown
+  currentPublicBody: unknown
+  currentAnswerBody: unknown
+  revision: number
+  updatedAt: string
+  routes: BoundRouteView[]
+}

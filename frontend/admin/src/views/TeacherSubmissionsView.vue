@@ -32,10 +32,10 @@ const errorMessage = ref('')
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 const choiceBody = computed<ChoiceBody | null>(() =>
-  detail.value?.kind === 'CHAPTER_CHOICE' ? (detail.value.submission.publicBody as ChoiceBody) : null
+  detail.value?.kind.endsWith('_CHOICE') ? (detail.value.submission.publicBody as ChoiceBody) : null
 )
 const codeBody = computed<CodeBody | null>(() =>
-  detail.value?.kind === 'COURSE_CODE' ? (detail.value.submission.publicBody as CodeBody) : null
+  detail.value?.kind.endsWith('_CODE') ? (detail.value.submission.publicBody as CodeBody) : null
 )
 
 function formatTime(value: string | null): string {
@@ -43,6 +43,8 @@ function formatTime(value: string | null): string {
 }
 
 function assignmentLabel(item: { kind: string; chapterId?: string | null }): string {
+  if (item.kind === 'BENEFIT_CHOICE') return '福利选择题'
+  if (item.kind === 'BENEFIT_CODE') return '福利代码题'
   if (item.kind === 'COURSE_CODE') return '课程代码补全'
   return `章节自测${item.chapterId ? `（章节 ${item.chapterId}）` : ''}`
 }
