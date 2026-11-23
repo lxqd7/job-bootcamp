@@ -8,6 +8,7 @@ import com.jobbootcamp.assignment.domain.dto.DraftRequest;
 import com.jobbootcamp.assignment.domain.dto.PageResponse;
 import com.jobbootcamp.assignment.domain.dto.ReviewView;
 import com.jobbootcamp.assignment.domain.dto.StudentAssignmentView;
+import com.jobbootcamp.assignment.domain.dto.StudentBenefitView;
 import com.jobbootcamp.assignment.domain.dto.SubmissionRequest;
 import com.jobbootcamp.assignment.domain.dto.SubmissionSummary;
 import com.jobbootcamp.assignment.domain.dto.SubmissionView;
@@ -53,6 +54,54 @@ public class StudentAssignmentController {
             @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
         requireStudent(role);
         return ApiResponse.ok(service.getAssignment(userId, id));
+    }
+
+    @GetMapping("/routes/{routeId}/benefit-assignments")
+    public ApiResponse<List<StudentBenefitView>> routeBenefits(
+            @PathVariable("routeId") Long routeId,
+            @RequestParam Long courseId,
+            @RequestAttribute(AssignmentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(service.benefitAssignmentsForRoute(userId, routeId, courseId));
+    }
+
+    @GetMapping("/benefit-assignments/{id}")
+    public ApiResponse<StudentBenefitView> getBenefitAssignment(
+            @PathVariable("id") Long id,
+            @RequestAttribute(AssignmentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(service.getBenefitAssignment(userId, id));
+    }
+
+    @PostMapping("/benefit-assignments/{id}/attempts")
+    public ApiResponse<AttemptView> startBenefitAttempt(
+            @PathVariable("id") Long id,
+            @RequestAttribute(AssignmentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(service.startBenefitAttempt(userId, id));
+    }
+
+    @GetMapping("/benefit-assignments/{id}/progress")
+    public ApiResponse<AssignmentProgressView> benefitProgress(
+            @PathVariable("id") Long id,
+            @RequestAttribute(AssignmentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(service.progress(userId, id));
+    }
+
+    @GetMapping("/benefit-assignments/{id}/submissions")
+    public ApiResponse<PageResponse<SubmissionSummary>> benefitSubmissions(
+            @PathVariable("id") Long id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestAttribute(AssignmentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(service.listSubmissions(userId, id, page, pageSize));
     }
 
     @GetMapping("/assignments/{id}/progress")

@@ -37,6 +37,7 @@ app:
     benefit-scope-url: ${COURSE_BENEFIT_SCOPE_URL:http://127.0.0.1:18082/int/v1/teachers/benefit-scope}
   learning:
     access-url: ${LEARNING_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/check}
+    benefit-access-url: ${LEARNING_BENEFIT_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/benefit}
   ai:
     mode: ${AI_MODE:mock}
     mock-delay-ms: ${AI_MOCK_DELAY_MS:0}

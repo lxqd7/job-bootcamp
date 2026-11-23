@@ -8,6 +8,8 @@ import com.jobbootcamp.learning.domain.EntitlementSource;
 import com.jobbootcamp.learning.domain.FreeClaimReceipt;
 import com.jobbootcamp.learning.domain.UserGuard;
 import com.jobbootcamp.contracts.internal.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.BenefitAccessCheckRequest;
+import com.jobbootcamp.contracts.internal.BenefitAccessCheckResponse;
 import com.jobbootcamp.contracts.internal.PurchasePrepareResponse;
 import com.jobbootcamp.contracts.internal.SourceSelectionItem;
 import com.jobbootcamp.contracts.internal.SourceSelectionResponse;
@@ -21,6 +23,7 @@ import com.jobbootcamp.learning.domain.dto.MyRouteItem;
 import com.jobbootcamp.learning.domain.dto.PageResponse;
 import com.jobbootcamp.learning.infrastructure.CourseGrantMapper;
 import com.jobbootcamp.learning.infrastructure.CourseSourceMapper;
+import com.jobbootcamp.learning.infrastructure.BenefitAccessMapper;
 import com.jobbootcamp.learning.infrastructure.EntitlementQueryMapper;
 import com.jobbootcamp.learning.infrastructure.EntitlementSourceMapper;
 import com.jobbootcamp.learning.infrastructure.FreeClaimReceiptMapper;
@@ -58,6 +61,7 @@ public class EntitlementService {
     private final PurchaseHoldMapper purchaseHoldMapper;
     private final GrantRouteMemberMapper routeMemberMapper;
     private final RouteEpochProjectionMapper epochProjectionMapper;
+    private final BenefitAccessMapper benefitAccessMapper;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate rowTemplate;
 
@@ -71,6 +75,7 @@ public class EntitlementService {
                               PurchaseHoldMapper purchaseHoldMapper,
                               GrantRouteMemberMapper routeMemberMapper,
                               RouteEpochProjectionMapper epochProjectionMapper,
+                              BenefitAccessMapper benefitAccessMapper,
                               PlatformTransactionManager transactionManager) {
         this.guardMapper = guardMapper;
         this.sourceMapper = sourceMapper;
@@ -82,6 +87,7 @@ public class EntitlementService {
         this.purchaseHoldMapper = purchaseHoldMapper;
         this.routeMemberMapper = routeMemberMapper;
         this.epochProjectionMapper = epochProjectionMapper;
+        this.benefitAccessMapper = benefitAccessMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate = new TransactionTemplate(transactionManager);
         this.rowTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -191,6 +197,29 @@ public class EntitlementService {
         Long sourceId = grantMapper.selectActiveSource(userId, courseId);
         return new AccessCheckResponse(sourceId != null,
                 sourceId == null ? null : String.valueOf(sourceId));
+    }
+
+    /**
+     * 福利题双权益：课程有效 grant + 至少一条路线在题目绑定 epoch 上的有效资格。
+     * 历史 epoch 的 grant 保留，路线移除课程后老学员仍可访问；退款冻结来源后资格立即失效。
+     */
+    public BenefitAccessCheckResponse checkBenefitAccess(long userId, long courseId,
+                                                         List<BenefitAccessCheckRequest.RouteEpoch> routes) {
+        AccessCheckResponse course = checkAccess(userId, courseId);
+        if (!course.allowed() || routes == null) {
+            return new BenefitAccessCheckResponse(false, course.allowed(), null, null, null);
+        }
+        for (BenefitAccessCheckRequest.RouteEpoch route : routes) {
+            if (route == null || route.routeId() == null || route.epochId() == null) {
+                continue;
+            }
+            Long sourceId = benefitAccessMapper.selectBenefitSource(
+                    userId, courseId, route.routeId(), route.epochId());
+            if (sourceId != null) {
+                return new BenefitAccessCheckResponse(true, true, route.routeId(), route.epochId(), sourceId);
+            }
+        }
+        return new BenefitAccessCheckResponse(false, true, null, null, null);
     }
 
     /**

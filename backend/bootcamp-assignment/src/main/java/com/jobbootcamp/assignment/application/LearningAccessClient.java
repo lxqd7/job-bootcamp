@@ -4,6 +4,8 @@ import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.contracts.internal.AccessCheckRequest;
 import com.jobbootcamp.contracts.internal.AccessCheckResponse;
+import com.jobbootcamp.contracts.internal.BenefitAccessCheckRequest;
+import com.jobbootcamp.contracts.internal.BenefitAccessCheckResponse;
 import com.jobbootcamp.contracts.internal.InternalTokenCodec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -22,11 +24,14 @@ public class LearningAccessClient {
 
     private final RestClient restClient;
     private final String accessUrl;
+    private final String benefitAccessUrl;
     private final String internalSecret;
 
     public LearningAccessClient(@Value("${app.learning.access-url}") String accessUrl,
+                                @Value("${app.learning.benefit-access-url}") String benefitAccessUrl,
                                 @Value("${app.internal.secret}") String internalSecret) {
         this.accessUrl = accessUrl;
+        this.benefitAccessUrl = benefitAccessUrl;
         this.internalSecret = internalSecret;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(500));
@@ -47,6 +52,28 @@ public class LearningAccessClient {
             return response != null && response.allowed();
         } catch (RestClientResponseException e) {
             throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "学习权益校验失败");
+        } catch (ResourceAccessException e) {
+            throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "学习服务暂时不可用");
+        }
+    }
+
+    public BenefitAccessCheckResponse benefitAccess(long userId, long courseId,
+                                                    java.util.List<BenefitAccessCheckRequest.RouteEpoch> routes) {
+        String token = InternalTokenCodec.issue(internalSecret, "bootcamp-assignment",
+                "bootcamp-learning", "access:benefit", 60);
+        try {
+            BenefitAccessCheckResponse response = restClient.post()
+                    .uri(benefitAccessUrl)
+                    .header(SERVICE_TOKEN_HEADER, token)
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .body(new BenefitAccessCheckRequest(userId, courseId, routes))
+                    .retrieve().body(BenefitAccessCheckResponse.class);
+            if (response == null) {
+                throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "福利权益校验失败");
+            }
+            return response;
+        } catch (RestClientResponseException e) {
+            throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "福利权益校验失败");
         } catch (ResourceAccessException e) {
             throw new BusinessException(ErrorCode.SERVICE_UNAVAILABLE, "学习服务暂时不可用");
         }

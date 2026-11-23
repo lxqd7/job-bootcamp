@@ -23,7 +23,9 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String operation = request.getRequestURI().startsWith("/int/v1/sources/revoke")
+        String operation = request.getRequestURI().startsWith("/int/v1/access/benefit")
+                ? "access:benefit"
+                : request.getRequestURI().startsWith("/int/v1/sources/revoke")
                 ? "sources:revoke"
                 : request.getRequestURI().startsWith("/int/v1/sources/restore")
                 ? "sources:restore"

@@ -19,7 +19,7 @@ spring:
             - id: assignment-service
               uri: http://127.0.0.1:18085
               predicates:
-                - Path=/api/v1/admin/assignments/**,/api/v1/assignments/**,/api/v1/attempts/**,/api/v1/submissions/**,/api/v1/courses/*/assignments,/api/v1/teacher/courses/*/assignments,/api/v1/teacher/courses/*/submissions,/api/v1/teacher/submissions/**,/api/v1/teacher/benefit-assignments/**,/api/v1/dev/assignments/**
+                - Path=/api/v1/admin/assignments/**,/api/v1/assignments/**,/api/v1/attempts/**,/api/v1/submissions/**,/api/v1/courses/*/assignments,/api/v1/teacher/courses/*/assignments,/api/v1/teacher/courses/*/submissions,/api/v1/teacher/submissions/**,/api/v1/teacher/benefit-assignments/**,/api/v1/benefit-assignments/**,/api/v1/routes/*/benefit-assignments,/api/v1/dev/assignments/**
             - id: trade-service
               uri: http://127.0.0.1:18084
               predicates:

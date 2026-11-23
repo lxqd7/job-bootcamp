@@ -200,6 +200,7 @@ public class BenefitAssignmentService {
         if (assignment.getCurrentVersionId() == null) {
             throw new BusinessException(ErrorCode.CONFLICT, "尚未发布的福利题无需下架");
         }
+        requireAssigned(teacherId, assignment.getCourseId(), routeIdsOf(assignment));
         assignment.setStatus("OFFLINE");
         assignment.setRevision(assignment.getRevision() + 1);
         assignment.setUpdatedAt(now());
@@ -216,6 +217,7 @@ public class BenefitAssignmentService {
         if (assignment.getCurrentVersionId() != null || routeMapper.countByAssignment(id) > 0) {
             throw new BusinessException(ErrorCode.CONFLICT, "已绑定路线或已发布的福利题不能删除，只能下架");
         }
+        requireAssigned(teacherId, assignment.getCourseId(), routeIdsOf(assignment));
         assignmentMapper.deleteById(id);
     }
 

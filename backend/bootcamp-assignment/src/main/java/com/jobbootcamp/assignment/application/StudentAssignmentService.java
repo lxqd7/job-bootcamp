@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobbootcamp.assignment.domain.Attempt;
 import com.jobbootcamp.assignment.domain.AiTask;
 import com.jobbootcamp.assignment.domain.Assignment;
+import com.jobbootcamp.assignment.domain.AssignmentRoute;
 import com.jobbootcamp.assignment.domain.AssignmentVersion;
 import com.jobbootcamp.assignment.domain.AiUserSlot;
 import com.jobbootcamp.assignment.domain.Submission;
@@ -16,17 +17,20 @@ import com.jobbootcamp.assignment.domain.dto.AttemptView;
 import com.jobbootcamp.assignment.domain.dto.PageResponse;
 import com.jobbootcamp.assignment.domain.dto.ReviewView;
 import com.jobbootcamp.assignment.domain.dto.StudentAssignmentView;
+import com.jobbootcamp.assignment.domain.dto.StudentBenefitView;
 import com.jobbootcamp.assignment.domain.dto.SubmissionSummary;
 import com.jobbootcamp.assignment.domain.dto.SubmissionView;
 import com.jobbootcamp.assignment.infrastructure.AiTaskMapper;
 import com.jobbootcamp.assignment.infrastructure.AiUserSlotMapper;
 import com.jobbootcamp.assignment.infrastructure.AssignmentMapper;
+import com.jobbootcamp.assignment.infrastructure.AssignmentRouteMapper;
 import com.jobbootcamp.assignment.infrastructure.AssignmentVersionMapper;
 import com.jobbootcamp.assignment.infrastructure.AttemptMapper;
 import com.jobbootcamp.assignment.infrastructure.SubmissionMapper;
 import com.jobbootcamp.assignment.messaging.AiTaskQueuedEvent;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
+import com.jobbootcamp.contracts.internal.BenefitAccessCheckRequest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -37,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -55,6 +60,7 @@ public class StudentAssignmentService {
 
     private final AssignmentMapper assignmentMapper;
     private final AssignmentVersionMapper versionMapper;
+    private final AssignmentRouteMapper routeMapper;
     private final AttemptMapper attemptMapper;
     private final SubmissionMapper submissionMapper;
     private final AiTaskMapper taskMapper;
@@ -66,6 +72,7 @@ public class StudentAssignmentService {
 
     public StudentAssignmentService(AssignmentMapper assignmentMapper,
                                     AssignmentVersionMapper versionMapper,
+                                    AssignmentRouteMapper routeMapper,
                                     AttemptMapper attemptMapper,
                                     SubmissionMapper submissionMapper,
                                     AiTaskMapper taskMapper,
@@ -76,6 +83,7 @@ public class StudentAssignmentService {
                                     PlatformTransactionManager transactionManager) {
         this.assignmentMapper = assignmentMapper;
         this.versionMapper = versionMapper;
+        this.routeMapper = routeMapper;
         this.attemptMapper = attemptMapper;
         this.submissionMapper = submissionMapper;
         this.taskMapper = taskMapper;
@@ -108,8 +116,7 @@ public class StudentAssignmentService {
      */
     public AssignmentProgressView progress(Long userId, Long assignmentId) {
         Assignment assignment = requireAssignment(assignmentId);
-        requireFormal(assignment);
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         if (assignment.getCurrentVersionId() == null) {
             return new AssignmentProgressView(assignmentId, assignment.getStatus(),
                     null, null, false, null, null, null, null);
@@ -128,6 +135,54 @@ public class StudentAssignmentService {
         Assignment assignment = requireAssignment(assignmentId);
         requireFormal(assignment);
         requireAccess(userId, assignment.getCourseId());
+        return startAttemptInternal(userId, assignment);
+    }
+
+    public List<StudentBenefitView> benefitAssignmentsForRoute(Long userId, Long routeId, Long courseId) {
+        List<AssignmentRoute> links = routeMapper.selectByRouteCourse(routeId, courseId);
+        List<StudentBenefitView> items = new ArrayList<>();
+        for (AssignmentRoute link : links) {
+            Assignment assignment = assignmentMapper.selectById(link.getAssignmentId());
+            if (assignment == null || !isBenefit(assignment)) {
+                continue;
+            }
+            BenefitAccessCheckRequest.RouteEpoch routeEpoch =
+                    new BenefitAccessCheckRequest.RouteEpoch(routeId, link.getEpochId());
+            if (!accessClient.benefitAccess(userId, courseId, List.of(routeEpoch)).allowed()) {
+                continue;
+            }
+            items.add(benefitView(userId, assignment, link));
+        }
+        return items;
+    }
+
+    public StudentBenefitView getBenefitAssignment(Long userId, Long assignmentId) {
+        Assignment assignment = requireAssignment(assignmentId);
+        if (!isBenefit(assignment)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "福利题不存在");
+        }
+        List<AssignmentRoute> links = routeMapper.selectByAssignment(assignmentId);
+        for (AssignmentRoute link : links) {
+            BenefitAccessCheckRequest.RouteEpoch routeEpoch =
+                    new BenefitAccessCheckRequest.RouteEpoch(link.getRouteId(), link.getEpochId());
+            if (accessClient.benefitAccess(userId, assignment.getCourseId(), List.of(routeEpoch)).allowed()) {
+                return benefitView(userId, assignment, link);
+            }
+        }
+        throw new BusinessException(ErrorCode.FORBIDDEN, "没有该福利题的课程或路线权益");
+    }
+
+    public AttemptView startBenefitAttempt(Long userId, Long assignmentId) {
+        Assignment assignment = requireAssignment(assignmentId);
+        if (!isBenefit(assignment)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "福利题不存在");
+        }
+        requireBenefitAccess(userId, assignment);
+        return startAttemptInternal(userId, assignment);
+    }
+
+    private AttemptView startAttemptInternal(Long userId, Assignment assignment) {
+        Long assignmentId = assignment.getId();
         if (!"ONLINE".equals(assignment.getStatus()) || assignment.getCurrentVersionId() == null) {
             throw new BusinessException(ErrorCode.CONFLICT, "作业尚未发布或已下架");
         }
@@ -157,7 +212,7 @@ public class StudentAssignmentService {
     public AttemptView getAttempt(Long userId, Long attemptId) {
         Attempt attempt = requireOwnedAttempt(userId, attemptId);
         Assignment assignment = requireAssignment(attempt.getAssignmentId());
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         AssignmentVersion version = requireVersion(attempt.getVersionId());
         return attemptView(attempt, version, readObjectOrNull(attempt.getDraftJson()));
     }
@@ -165,7 +220,7 @@ public class StudentAssignmentService {
     public AttemptView saveDraft(Long userId, Long attemptId, Object answers, Long expectedRevision) {
         Attempt attempt = requireOwnedAttempt(userId, attemptId);
         Assignment assignment = requireAssignment(attempt.getAssignmentId());
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         if (!"OPEN".equals(attempt.getStatus())) {
             throw new BusinessException(ErrorCode.CONFLICT, "已提交的 attempt 不能继续保存草稿");
         }
@@ -189,7 +244,7 @@ public class StudentAssignmentService {
         }
         Attempt attempt = requireOwnedAttempt(userId, attemptId);
         Assignment assignment = requireAssignment(attempt.getAssignmentId());
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         String requestHash = requestHash(attemptId, answers);
         Submission existing = submissionMapper.selectByRequest(userId, attemptId, requestKey);
         if (existing != null) {
@@ -206,7 +261,7 @@ public class StudentAssignmentService {
         }
         JsonNode answerNode = JSON.valueToTree(answers == null ? Map.of() : answers);
         AssignmentVersion version = requireVersion(attempt.getVersionId());
-        boolean code = "COURSE_CODE".equals(assignment.getKind());
+        boolean code = assignment.getKind().endsWith("_CODE");
         Grade grade = code ? validateCodeAnswers(version, answerNode) : gradeChoice(version, answerNode);
         try {
             return transactionTemplate.execute(status -> submitInTransaction(
@@ -222,7 +277,7 @@ public class StudentAssignmentService {
 
     public PageResponse<SubmissionSummary> listSubmissions(Long userId, Long assignmentId, int page, int pageSize) {
         Assignment assignment = requireAssignment(assignmentId);
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         long pageNumber = Math.max(1, page);
         long size = Math.min(100, Math.max(1, pageSize));
         IPage<Submission> result = submissionMapper.selectPage(new Page<>(pageNumber, size),
@@ -243,14 +298,14 @@ public class StudentAssignmentService {
     public SubmissionView getSubmission(Long userId, Long submissionId) {
         Submission submission = requireOwnedSubmission(userId, submissionId);
         Assignment assignment = requireAssignment(submission.getAssignmentId());
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         return submissionAssembler.view(submission);
     }
 
     public ReviewView getReview(Long userId, Long submissionId) {
         Submission submission = requireOwnedSubmission(userId, submissionId);
         Assignment assignment = requireAssignment(submission.getAssignmentId());
-        requireAccess(userId, assignment.getCourseId());
+        requireAssignmentAccess(userId, assignment);
         return submissionAssembler.review(submissionId);
     }
 
@@ -480,6 +535,59 @@ public class StudentAssignmentService {
         if (!accessClient.allowed(userId, courseId)) {
             throw new BusinessException(ErrorCode.NO_COURSE_ACCESS, "没有该课程的有效学习权益");
         }
+    }
+
+    private void requireAssignmentAccess(Long userId, Assignment assignment) {
+        if (FORMAL_KINDS.contains(assignment.getKind())) {
+            requireAccess(userId, assignment.getCourseId());
+            return;
+        }
+        if (isBenefit(assignment)) {
+            requireBenefitAccess(userId, assignment);
+            return;
+        }
+        throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
+    }
+
+    private void requireBenefitAccess(Long userId, Assignment assignment) {
+        List<AssignmentRoute> links = routeMapper.selectByAssignment(assignment.getId());
+        if (links.isEmpty()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "福利题没有可用路线");
+        }
+        List<BenefitAccessCheckRequest.RouteEpoch> epochs = links.stream()
+                .map(link -> new BenefitAccessCheckRequest.RouteEpoch(link.getRouteId(), link.getEpochId()))
+                .toList();
+        if (!accessClient.benefitAccess(userId, assignment.getCourseId(), epochs).allowed()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "没有该福利题的课程或路线权益");
+        }
+    }
+
+    private boolean isBenefit(Assignment assignment) {
+        return "BENEFIT_CHOICE".equals(assignment.getKind())
+                || "BENEFIT_CODE".equals(assignment.getKind());
+    }
+
+    private StudentBenefitView benefitView(Long userId, Assignment assignment, AssignmentRoute link) {
+        Integer versionNo = null;
+        Object publicBody = null;
+        boolean submitted = false;
+        Long openAttemptId = null;
+        if (assignment.getCurrentVersionId() != null) {
+            AssignmentVersion version = versionMapper.selectById(assignment.getCurrentVersionId());
+            if (version != null) {
+                versionNo = version.getVersionNo();
+                if ("ONLINE".equals(assignment.getStatus())) {
+                    publicBody = readObject(version.getPublicBody());
+                }
+                submitted = submissionMapper.selectRecentForVersion(
+                        userId, assignment.getId(), version.getId()) != null;
+                Attempt open = attemptMapper.selectLatestOpen(userId, assignment.getId(), version.getId());
+                openAttemptId = open == null ? null : open.getId();
+            }
+        }
+        return new StudentBenefitView(assignment.getId(), assignment.getKind(), assignment.getCourseId(),
+                assignment.getStatus(), versionNo, publicBody, link.getRouteId(), link.getEpochId(),
+                submitted, openAttemptId);
     }
 
     private Assignment requireAssignment(Long id) {

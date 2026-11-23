@@ -54,7 +54,7 @@ public class SubmissionAssembler {
         Object referenceBody = null;
         Object correctAnswers = null;
         Object analysis = null;
-        if ("COURSE_CODE".equals(assignment.getKind())) {
+        if (assignment.getKind().endsWith("_CODE")) {
             referenceBody = JSON.convertValue(answerBody.path("referenceBySlot"), Object.class);
         } else {
             correctAnswers = JSON.convertValue(answerBody.path("answers"), Object.class);
