@@ -19,9 +19,6 @@ public interface AiTaskMapper extends BaseMapper<AiTask> {
     @Select("SELECT * FROM ai_task WHERE id = #{id} FOR UPDATE")
     AiTask selectForUpdate(@Param("id") Long id);
 
-    @Select("SELECT * FROM ai_task WHERE state = 'QUEUED' ORDER BY id LIMIT #{limit}")
-    List<AiTask> selectQueued(@Param("limit") int limit);
-
     /**
      * 租约到期或等待重试到期的任务可被重新领取；SKIP LOCKED 让多实例不会抢同一行。
      */
@@ -80,13 +77,4 @@ public interface AiTaskMapper extends BaseMapper<AiTask> {
               AND lease_until IS NOT NULL AND lease_until < #{now}
             """)
     int requeueExpiredLease(@Param("id") Long id, @Param("now") LocalDateTime now);
-
-    @Update("""
-            UPDATE ai_task SET state = #{target}, updated_at = #{now}
-            WHERE id = #{id} AND state = #{expected}
-            """)
-    int transition(@Param("id") Long id,
-                   @Param("expected") String expected,
-                   @Param("target") String target,
-                   @Param("now") LocalDateTime now);
 }
