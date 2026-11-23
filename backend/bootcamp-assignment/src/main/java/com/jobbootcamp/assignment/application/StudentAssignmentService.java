@@ -51,6 +51,7 @@ import java.util.Set;
 public class StudentAssignmentService {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Set<String> FORMAL_KINDS = Set.of("CHAPTER_CHOICE", "COURSE_CODE");
 
     private final AssignmentMapper assignmentMapper;
     private final AssignmentVersionMapper versionMapper;
@@ -89,6 +90,7 @@ public class StudentAssignmentService {
         requireAccess(userId, courseId);
         return assignmentMapper.selectList(Wrappers.<Assignment>lambdaQuery()
                         .eq(Assignment::getCourseId, courseId)
+                        .in(Assignment::getKind, FORMAL_KINDS)
                         .orderByAsc(Assignment::getKind)
                         .orderByAsc(Assignment::getChapterId))
                 .stream().map(assignment -> studentView(userId, assignment)).toList();
@@ -96,6 +98,7 @@ public class StudentAssignmentService {
 
     public StudentAssignmentView getAssignment(Long userId, Long assignmentId) {
         Assignment assignment = requireAssignment(assignmentId);
+        requireFormal(assignment);
         requireAccess(userId, assignment.getCourseId());
         return studentView(userId, assignment);
     }
@@ -105,6 +108,7 @@ public class StudentAssignmentService {
      */
     public AssignmentProgressView progress(Long userId, Long assignmentId) {
         Assignment assignment = requireAssignment(assignmentId);
+        requireFormal(assignment);
         requireAccess(userId, assignment.getCourseId());
         if (assignment.getCurrentVersionId() == null) {
             return new AssignmentProgressView(assignmentId, assignment.getStatus(),
@@ -122,6 +126,7 @@ public class StudentAssignmentService {
 
     public AttemptView startAttempt(Long userId, Long assignmentId) {
         Assignment assignment = requireAssignment(assignmentId);
+        requireFormal(assignment);
         requireAccess(userId, assignment.getCourseId());
         if (!"ONLINE".equals(assignment.getStatus()) || assignment.getCurrentVersionId() == null) {
             throw new BusinessException(ErrorCode.CONFLICT, "作业尚未发布或已下架");
@@ -483,6 +488,12 @@ public class StudentAssignmentService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
         return assignment;
+    }
+
+    private void requireFormal(Assignment assignment) {
+        if (!FORMAL_KINDS.contains(assignment.getKind())) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
+        }
     }
 
     private AssignmentVersion requireVersion(Long id) {

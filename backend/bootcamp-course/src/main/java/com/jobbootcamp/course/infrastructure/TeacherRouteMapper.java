@@ -14,6 +14,9 @@ public interface TeacherRouteMapper {
     @Select("SELECT route_id FROM teacher_route WHERE teacher_id = #{teacherId} AND active = TRUE ORDER BY route_id")
     List<Long> selectActiveRouteIds(@Param("teacherId") Long teacherId);
 
+    @Select("SELECT COUNT(*) FROM teacher_route WHERE teacher_id = #{teacherId} AND route_id = #{routeId} AND active = TRUE")
+    int countActiveRoute(@Param("teacherId") Long teacherId, @Param("routeId") Long routeId);
+
     @Delete("DELETE FROM teacher_route WHERE teacher_id = #{teacherId}")
     int deleteByTeacher(@Param("teacherId") Long teacherId);
 

@@ -34,6 +34,7 @@ app:
     profile-batch-url: ${USER_PROFILE_BATCH_URL:http://127.0.0.1:18081/int/v1/profiles/batch}
   course:
     scope-url: ${COURSE_TEACHER_SCOPE_URL:http://127.0.0.1:18082/int/v1/teachers/scope}
+    benefit-scope-url: ${COURSE_BENEFIT_SCOPE_URL:http://127.0.0.1:18082/int/v1/teachers/benefit-scope}
   learning:
     access-url: ${LEARNING_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/check}
   ai:

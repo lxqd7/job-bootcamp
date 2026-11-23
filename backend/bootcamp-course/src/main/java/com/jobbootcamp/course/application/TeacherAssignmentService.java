@@ -16,9 +16,12 @@ import com.jobbootcamp.course.infrastructure.CourseMapper;
 import com.jobbootcamp.course.infrastructure.LearningRouteMapper;
 import com.jobbootcamp.course.infrastructure.RouteDraftMemberMapper;
 import com.jobbootcamp.course.infrastructure.RouteMemberCurrentMapper;
+import com.jobbootcamp.course.infrastructure.RouteMemberEpochMapper;
 import com.jobbootcamp.course.infrastructure.TeacherCourseMapper;
 import com.jobbootcamp.course.infrastructure.TeacherRouteMapper;
 import com.jobbootcamp.course.infrastructure.TeacherScopeMapper;
+import com.jobbootcamp.contracts.internal.TeacherBenefitScopeResponse;
+import com.jobbootcamp.course.domain.RouteMemberEpoch;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,7 @@ public class TeacherAssignmentService {
     private final LearningRouteMapper routeMapper;
     private final RouteMemberCurrentMapper currentMapper;
     private final RouteDraftMemberMapper draftMapper;
+    private final RouteMemberEpochMapper epochMapper;
 
     public TeacherAssignmentService(TeacherScopeMapper scopeMapper,
                                     TeacherCourseMapper teacherCourseMapper,
@@ -48,7 +52,8 @@ public class TeacherAssignmentService {
                                     CourseMapper courseMapper,
                                     LearningRouteMapper routeMapper,
                                     RouteMemberCurrentMapper currentMapper,
-                                    RouteDraftMemberMapper draftMapper) {
+                                    RouteDraftMemberMapper draftMapper,
+                                    RouteMemberEpochMapper epochMapper) {
         this.scopeMapper = scopeMapper;
         this.teacherCourseMapper = teacherCourseMapper;
         this.teacherRouteMapper = teacherRouteMapper;
@@ -56,6 +61,7 @@ public class TeacherAssignmentService {
         this.routeMapper = routeMapper;
         this.currentMapper = currentMapper;
         this.draftMapper = draftMapper;
+        this.epochMapper = epochMapper;
     }
 
     public TeacherAssignmentsResponse assignments(Long teacherId) {
@@ -106,6 +112,41 @@ public class TeacherAssignmentService {
      */
     public boolean hasCourseScope(Long teacherId, Long courseId) {
         return teacherCourseMapper.countActiveCourse(teacherId, courseId) > 0;
+    }
+
+    /**
+     * 福利题发布前的双重范围检查：课程分配、路线分配、路线在线、路线当前包含该课程。
+     * teacherId 为 null 表示管理员治理，不做教师分配检查，但仍要求路线在线且包含课程。
+     */
+    public TeacherBenefitScopeResponse benefitScope(Long teacherId, Long courseId, List<Long> routeIds) {
+        boolean courseAssigned = teacherId == null
+                || teacherCourseMapper.countActiveCourse(teacherId, courseId) > 0;
+        List<TeacherBenefitScopeResponse.RouteScope> routes = new ArrayList<>();
+        for (Long routeId : routeIds) {
+            boolean routeAssigned = teacherId == null
+                    || teacherRouteMapper.countActiveRoute(teacherId, routeId) > 0;
+            LearningRoute route = routeMapper.selectById(routeId);
+            boolean routeOnline = route != null && "ONLINE".equals(route.getStatus());
+            RouteMemberEpoch epoch = route == null ? null : epochMapper.selectActive(routeId, courseId);
+            boolean containsCourse = epoch != null;
+            String reason = null;
+            if (teacherId != null && !courseAssigned) {
+                reason = "TEACHER_COURSE_SCOPE";
+            } else if (!routeAssigned) {
+                reason = "TEACHER_ROUTE_SCOPE";
+            } else if (route == null) {
+                reason = "ROUTE_NOT_FOUND";
+            } else if (!routeOnline) {
+                reason = "ROUTE_NOT_ONLINE";
+            } else if (!containsCourse) {
+                reason = "ROUTE_NOT_CONTAIN_COURSE";
+            }
+            routes.add(new TeacherBenefitScopeResponse.RouteScope(routeId,
+                    epoch == null ? null : epoch.getId(), routeAssigned, routeOnline, containsCourse, reason));
+        }
+        boolean allRoutesAssigned = routes.stream()
+                .allMatch(TeacherBenefitScopeResponse.RouteScope::routeAssigned);
+        return new TeacherBenefitScopeResponse(courseAssigned, allRoutesAssigned, routes);
     }
 
     public List<TeacherCourseItem> courses(Long teacherId) {

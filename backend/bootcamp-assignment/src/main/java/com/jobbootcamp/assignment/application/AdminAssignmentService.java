@@ -49,6 +49,7 @@ public class AdminAssignmentService {
         long size = Math.min(100, Math.max(1, pageSize));
         IPage<Assignment> result = assignmentMapper.selectPage(new Page<>(pageNumber, size),
                 Wrappers.<Assignment>lambdaQuery()
+                        .in(Assignment::getKind, KINDS)
                         .eq(courseId != null, Assignment::getCourseId, courseId)
                         .eq(status != null && !status.isBlank(), Assignment::getStatus, status)
                         .orderByDesc(Assignment::getUpdatedAt)
@@ -87,6 +88,7 @@ public class AdminAssignmentService {
         if (assignment == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
+        requireFormal(assignment);
         requireRevision(assignment, request.revision());
         if (request.kind() != null && !normalizedKind(request).equals(assignment.getKind())
                 || request.courseId() != null && !request.courseId().equals(assignment.getCourseId())
@@ -102,9 +104,10 @@ public class AdminAssignmentService {
 
     public AssignmentView get(Long id) {
         Assignment assignment = assignmentMapper.selectById(id);
-        if (assignment == null) {
+        if (assignment == null || !KINDS.contains(assignment.getKind())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
+        requireFormal(assignment);
         return view(assignment);
     }
 
@@ -114,6 +117,7 @@ public class AdminAssignmentService {
         if (assignment == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
+        requireFormal(assignment);
         requireRevision(assignment, expectedRevision);
         JsonNode draft = readJson(assignment.getDraftJson());
         int versionNo = versionMapper.maxVersionNo(id) + 1;
@@ -140,6 +144,7 @@ public class AdminAssignmentService {
         if (assignment == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
+        requireFormal(assignment);
         requireRevision(assignment, expectedRevision);
         if (assignment.getCurrentVersionId() == null) {
             throw new BusinessException(ErrorCode.CONFLICT, "尚未发布的作业无需下架");
@@ -157,6 +162,7 @@ public class AdminAssignmentService {
         if (assignment == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
+        requireFormal(assignment);
         requireRevision(assignment, expectedRevision);
         if (assignment.getCurrentVersionId() != null) {
             throw new BusinessException(ErrorCode.CONFLICT, "已发布作业不能删除，只能下架");
@@ -395,6 +401,12 @@ public class AdminAssignmentService {
     private void requireRevision(Assignment assignment, Long expected) {
         if (expected == null || !expected.equals(assignment.getRevision())) {
             throw new BusinessException(ErrorCode.CONFLICT, "作业草稿已在其他位置更新，请刷新后重试");
+        }
+    }
+
+    private void requireFormal(Assignment assignment) {
+        if (!KINDS.contains(assignment.getKind())) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "作业不存在");
         }
     }
 

@@ -1,5 +1,7 @@
 package com.jobbootcamp.course.controller;
 
+import com.jobbootcamp.contracts.internal.TeacherBenefitScopeRequest;
+import com.jobbootcamp.contracts.internal.TeacherBenefitScopeResponse;
 import com.jobbootcamp.contracts.internal.TeacherScopeCheckRequest;
 import com.jobbootcamp.contracts.internal.TeacherScopeCheckResponse;
 import com.jobbootcamp.course.application.TeacherAssignmentService;
@@ -22,5 +24,11 @@ public class InternalTeacherController {
     public TeacherScopeCheckResponse scope(@RequestBody TeacherScopeCheckRequest request) {
         return new TeacherScopeCheckResponse(
                 teacherAssignmentService.hasCourseScope(request.teacherId(), request.courseId()));
+    }
+
+    @PostMapping("/benefit-scope")
+    public TeacherBenefitScopeResponse benefitScope(@RequestBody TeacherBenefitScopeRequest request) {
+        return teacherAssignmentService.benefitScope(
+                request.teacherId(), request.courseId(), request.routeIds());
     }
 }
