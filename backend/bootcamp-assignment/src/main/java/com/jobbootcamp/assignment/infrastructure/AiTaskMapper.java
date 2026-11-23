@@ -77,4 +77,17 @@ public interface AiTaskMapper extends BaseMapper<AiTask> {
               AND lease_until IS NOT NULL AND lease_until < #{now}
             """)
     int requeueExpiredLease(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    @Update("""
+            UPDATE ai_task
+            SET call_count = #{callCount}, round_no = #{roundNo},
+                repair_used = #{repairUsed}, updated_at = #{now}
+            WHERE id = #{id} AND state = 'RUNNING' AND lease_token = #{token}
+            """)
+    int updateProgress(@Param("id") Long id,
+                       @Param("token") String token,
+                       @Param("callCount") int callCount,
+                       @Param("roundNo") int roundNo,
+                       @Param("repairUsed") boolean repairUsed,
+                       @Param("now") LocalDateTime now);
 }

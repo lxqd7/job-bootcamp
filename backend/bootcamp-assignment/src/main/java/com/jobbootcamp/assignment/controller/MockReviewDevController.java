@@ -18,7 +18,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/v1/dev/assignments")
-@ConditionalOnProperty(name = "app.ai.mock-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.ai.mode", havingValue = "mock", matchIfMissing = true)
 public class MockReviewDevController {
 
     private final AiReviewWorker worker;

@@ -180,6 +180,21 @@ public class AiReviewWorker {
                 return;
             }
             complete(claim, feedback);
+        } catch (AiLeaseLostException e) {
+            log.warn("AI task {} lease lost while engine was running; result discarded", claim.taskId());
+            return;
+        } catch (AiEngineException e) {
+            if (Thread.currentThread().isInterrupted()) {
+                log.info("AI task {} interrupted by shutdown; lease will expire for recovery", claim.taskId());
+                return;
+            }
+            if (keeper.lost()) {
+                log.warn("AI task {} lease was lost after engine error; stale failure discarded", claim.taskId());
+                return;
+            }
+            log.warn("AI task {} engine failed: safeCode={}, reason={}",
+                    claim.taskId(), e.safeCode(), e.getMessage());
+            fail(claim, e.safeCode());
         } catch (Exception e) {
             if (Thread.currentThread().isInterrupted()) {
                 log.info("AI task {} interrupted by shutdown; lease will expire for recovery", claim.taskId());

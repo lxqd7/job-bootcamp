@@ -38,7 +38,6 @@ app:
     access-url: ${LEARNING_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/check}
   ai:
     mode: ${AI_MODE:mock}
-    mock-enabled: ${AI_MOCK_ENABLED:true}
     mock-delay-ms: ${AI_MOCK_DELAY_MS:0}
     worker-poll-ms: ${AI_MOCK_POLL_MS:2000}
     worker-concurrency: ${AI_WORKER_CONCURRENCY:4}
@@ -50,6 +49,18 @@ app:
       exchange: ${AI_WAKEUP_EXCHANGE:bc.domain.v1}
       queue: ${AI_WAKEUP_QUEUE:bc.assignment.review-requested.v1}
       routing-key: ${AI_WAKEUP_ROUTING_KEY:assignment.review-requested.v1}
+    http:
+      connect-timeout-ms: ${AI_HTTP_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${AI_HTTP_READ_TIMEOUT_MS:45000}
+      retry-delays-ms: ${AI_RETRY_DELAYS_MS:5000,20000}
+      qwen:
+        base-url: ${QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+        model: ${QWEN_MODEL:qwen-plus}
+        api-key: ${QWEN_API_KEY:}
+      deepseek:
+        base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+        model: ${DEEPSEEK_MODEL:deepseek-chat}
+        api-key: ${DEEPSEEK_API_KEY:}
 
 management:
   endpoints:
