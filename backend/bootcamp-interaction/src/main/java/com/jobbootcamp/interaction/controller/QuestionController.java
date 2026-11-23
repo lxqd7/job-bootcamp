@@ -1,6 +1,7 @@
 package com.jobbootcamp.interaction.controller;
 
 import com.jobbootcamp.common.web.ApiResponse;
+import com.jobbootcamp.interaction.application.NoteService;
 import com.jobbootcamp.interaction.application.QuestionService;
 import com.jobbootcamp.interaction.config.InteractionAuthInterceptor;
 import com.jobbootcamp.interaction.config.ModerationInterceptor;
@@ -32,9 +33,11 @@ import java.util.Map;
 public class QuestionController {
 
     private final QuestionService service;
+    private final NoteService noteService;
 
-    public QuestionController(QuestionService service) {
+    public QuestionController(QuestionService service, NoteService noteService) {
         this.service = service;
+        this.noteService = noteService;
     }
 
     @GetMapping("/courses/{courseId}/questions")
@@ -164,7 +167,12 @@ public class QuestionController {
             @PathVariable("id") Long id,
             @RequestBody HideRequest request,
             @RequestAttribute(ModerationInterceptor.ADMIN_ID_ATTRIBUTE) Long adminId) {
-        service.hide(adminId, type, id, request == null ? null : request.reason());
+        String reason = request == null ? null : request.reason();
+        if ("NOTE".equalsIgnoreCase(type)) {
+            noteService.hideNote(adminId, id, reason);
+        } else {
+            service.hide(adminId, type, id, reason);
+        }
         return ApiResponse.ok(Map.of("status", "hidden"));
     }
 
