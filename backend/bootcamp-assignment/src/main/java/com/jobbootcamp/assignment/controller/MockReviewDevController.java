@@ -1,6 +1,6 @@
 package com.jobbootcamp.assignment.controller;
 
-import com.jobbootcamp.assignment.application.MockReviewWorker;
+import com.jobbootcamp.assignment.application.AiReviewWorker;
 import com.jobbootcamp.assignment.config.AssignmentAuthInterceptor;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
@@ -21,9 +21,9 @@ import java.util.Map;
 @ConditionalOnProperty(name = "app.ai.mock-enabled", havingValue = "true", matchIfMissing = true)
 public class MockReviewDevController {
 
-    private final MockReviewWorker worker;
+    private final AiReviewWorker worker;
 
-    public MockReviewDevController(MockReviewWorker worker) {
+    public MockReviewDevController(AiReviewWorker worker) {
         this.worker = worker;
     }
 

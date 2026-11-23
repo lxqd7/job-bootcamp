@@ -24,8 +24,10 @@ import com.jobbootcamp.assignment.infrastructure.AssignmentMapper;
 import com.jobbootcamp.assignment.infrastructure.AssignmentVersionMapper;
 import com.jobbootcamp.assignment.infrastructure.AttemptMapper;
 import com.jobbootcamp.assignment.infrastructure.SubmissionMapper;
+import com.jobbootcamp.assignment.messaging.AiTaskQueuedEvent;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -58,6 +60,7 @@ public class StudentAssignmentService {
     private final AiUserSlotMapper slotMapper;
     private final SubmissionAssembler submissionAssembler;
     private final LearningAccessClient accessClient;
+    private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
 
     public StudentAssignmentService(AssignmentMapper assignmentMapper,
@@ -68,6 +71,7 @@ public class StudentAssignmentService {
                                     AiUserSlotMapper slotMapper,
                                     SubmissionAssembler submissionAssembler,
                                     LearningAccessClient accessClient,
+                                    ApplicationEventPublisher eventPublisher,
                                     PlatformTransactionManager transactionManager) {
         this.assignmentMapper = assignmentMapper;
         this.versionMapper = versionMapper;
@@ -77,6 +81,7 @@ public class StudentAssignmentService {
         this.slotMapper = slotMapper;
         this.submissionAssembler = submissionAssembler;
         this.accessClient = accessClient;
+        this.eventPublisher = eventPublisher;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -296,6 +301,8 @@ public class StudentAssignmentService {
             task.setUpdatedAt(now);
             taskMapper.insert(task);
             slotMapper.occupy(attempt.getUserId(), task.getId(), now);
+            eventPublisher.publishEvent(new AiTaskQueuedEvent(
+                    task.getId(), submission.getId(), attempt.getUserId()));
         }
 
         locked.setStatus("SUBMITTED");
