@@ -575,3 +575,30 @@ export interface AdminModerationAuditView {
   reason: string
   createdAt: string
 }
+
+export interface ExchangeRuleView {
+  id: string
+  ruleKey: string
+  versionNo: number
+  type: string
+  scope: string
+  targetId: string | null
+  validityType: string
+  validDays: number | null
+}
+
+export interface ExchangeProjectView {
+  id: string
+  name: string
+  rule: ExchangeRuleView | null
+  pointsPrice: number
+  stockTotal: number
+  stockUsed: number
+  perUserLimit: number
+  state: string
+  openAt: string
+  closeAt: string
+  revision: number
+  createdAt: string
+  updatedAt: string
+}

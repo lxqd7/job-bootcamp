@@ -17,6 +17,7 @@ const links = computed(() => {
       { to: '/admin/teachers', label: '教师分配' },
       { to: '/admin/media', label: '媒体管理' },
       { to: '/admin/activities', label: '优惠活动' },
+      { to: '/admin/exchange-projects', label: '积分兑换' },
       { to: '/admin/trades', label: '交易场景' },
       { to: '/admin/refunds', label: '退款对账' },
       { to: '/admin/assignments', label: '正式作业' },

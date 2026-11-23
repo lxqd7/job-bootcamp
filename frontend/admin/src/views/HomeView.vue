@@ -34,6 +34,10 @@ const isAdmin = computed(() => me.value?.role === 'ADMIN')
         <h2>内容治理</h2>
         <p>查看公开原创笔记的评优事实，填写原因违规撤回奖励，并核对治理审计。</p>
       </RouterLink>
+      <RouterLink class="entry" to="/admin/exchange-projects">
+        <h2>积分兑换</h2>
+        <p>配置券规则、积分价、库存、每人累计限兑与开放窗口，支持上下架和版本确认。</p>
+      </RouterLink>
       <RouterLink class="entry" to="/me">
         <h2>个人资料</h2>
         <p>维护昵称与头像地址，修改密码后需要重新登录。</p>

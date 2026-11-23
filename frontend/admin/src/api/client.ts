@@ -7,6 +7,7 @@ import type {
   AdminOrderItem,
   AdminRefundItem,
   ApiEnvelope,
+  ExchangeProjectView,
   AssignmentSummary,
   AssignmentView,
   CouponRuleView,
@@ -398,4 +399,47 @@ export async function revokeExcellentReward(noteId: string, reason: string): Pro
     `/api/v1/admin/notes/${noteId}/revoke-reward`, { reason }
   )
   if (data.code !== 'OK') throw new Error(data.message || '撤回失败')
+}
+
+export async function loadExchangeProjects(
+  state: string,
+  page = 1,
+  pageSize = 50
+): Promise<PageResponse<ExchangeProjectView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<ExchangeProjectView>>>(
+    '/api/v1/admin/exchange-projects', { params: { state: state || undefined, page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '兑换项目加载失败')
+  return data.data
+}
+
+export async function createExchangeProject(payload: Record<string, unknown>): Promise<ExchangeProjectView> {
+  const { data } = await http.post<ApiEnvelope<ExchangeProjectView>>(
+    '/api/v1/admin/exchange-projects', payload
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '兑换项目创建失败')
+  return data.data
+}
+
+export async function updateExchangeProject(
+  id: string,
+  payload: Record<string, unknown>
+): Promise<ExchangeProjectView> {
+  const { data } = await http.patch<ApiEnvelope<ExchangeProjectView>>(
+    `/api/v1/admin/exchange-projects/${id}`, payload
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '兑换项目更新失败')
+  return data.data
+}
+
+export async function changeExchangeProjectState(
+  id: string,
+  action: 'online' | 'offline',
+  revision: number
+): Promise<ExchangeProjectView> {
+  const { data } = await http.post<ApiEnvelope<ExchangeProjectView>>(
+    `/api/v1/admin/exchange-projects/${id}/${action}`, { revision }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '兑换项目状态更新失败')
+  return data.data
 }

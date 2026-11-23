@@ -22,7 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/v1/me/**", "/api/v1/boards/**", "/api/v1/sign-ins",
                         "/api/v1/activities/**", "/api/v1/activity-items/**",
                         "/api/v1/admin/coupon-rules/**", "/api/v1/admin/activities/**",
-                        "/api/v1/admin/activity-items/**");
+                        "/api/v1/admin/activity-items/**", "/api/v1/admin/exchange-projects/**");
         registry.addInterceptor(internalAuthInterceptor).addPathPatterns("/int/v1/**");
     }
 }
