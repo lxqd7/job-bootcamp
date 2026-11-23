@@ -67,6 +67,19 @@ function reviewStateLabel(state: string): string {
   }
 }
 
+function safeErrorText(code: string | null): string {
+  switch (code) {
+    case 'AI_UNAVAILABLE':
+      return '点评服务暂时不可用，本次点评未能完成。'
+    case 'AI_INVALID_RESPONSE':
+      return '点评结果格式异常，本次点评未能完成。'
+    case 'AI_TIMEOUT':
+      return '点评超时，本次点评未能完成。'
+    default:
+      return '本次点评未能完成，提交记录和答案已保留。'
+  }
+}
+
 function verdictLabel(verdict: string): string {
   switch (verdict) {
     case 'SATISFIED':
@@ -282,12 +295,18 @@ onMounted(loadBase)
 
           <h3>AI 反馈</h3>
           <p class="muted">
-            {{ reviewStateLabel(detail.review.taskStatus) }}
+            状态：{{ reviewStateLabel(detail.review.taskStatus) }}
             <span v-if="detail.review.feedback?.isMock" class="mock-tag">固定样例 · MOCK</span>
+            <span class="read-only">教师只读</span>
           </p>
-          <p v-if="detail.review.taskStatus === 'FAILED'" class="failed">
-            点评失败（{{ detail.review.safeErrorCode ?? '未知类别' }}）；教师无重试入口。
-          </p>
+          <div v-if="detail.review.taskStatus === 'FAILED'" class="failure-panel">
+            <strong>点评失败</strong>
+            <p>{{ safeErrorText(detail.review.safeErrorCode ?? null) }}</p>
+            <p>教师页面没有重试、改分或重写评价的入口；学生可返回作业重新作答并形成新任务。</p>
+          </div>
+          <div v-else-if="['QUEUED', 'RUNNING', 'RETRY_WAIT'].includes(detail.review.taskStatus)" class="waiting-panel">
+            点评仍在处理中；教师看到的是同一业务结果，没有手动推进或重试入口。
+          </div>
           <template v-if="detail.review.feedback">
             <p class="verdict">{{ verdictLabel(detail.review.feedback.verdict) }}</p>
             <p class="summary">{{ detail.review.feedback.summary }}</p>
@@ -306,6 +325,7 @@ onMounted(loadBase)
               模型局限：{{ detail.review.feedback.limitations?.length ? detail.review.feedback.limitations.join('；') : '无' }}
             </p>
           </template>
+          <p class="fine-print">点评为静态检查，不执行代码、不提供数值评分；不展示供应商或模型配置。</p>
 
           <h3>参考实现</h3>
           <template v-for="(segment, index) in codeBody.segments" :key="index">
@@ -356,6 +376,11 @@ tr.selected { background: rgba(46, 94, 78, .05); }
 .slot-block { margin: 10px 0; }
 .slot-label { margin: 0 0 5px; color: var(--muted); font-size: 12px; }
 .mock-tag { margin-left: 8px; padding: 1px 7px; border: 1px solid var(--amber); color: var(--amber); font-size: 11px; }
+.read-only { margin-left: 8px; padding: 1px 7px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.waiting-panel { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--pine); color: var(--muted); font-size: 13px; line-height: 1.7; }
+.failure-panel { display: grid; gap: 6px; margin: 10px 0; padding: 12px; border: 1px solid var(--amber); background: rgba(164, 98, 42, .05); font-size: 13px; line-height: 1.7; }
+.failure-panel strong { color: var(--amber); }
+.failure-panel p { margin: 0; }
 .failed { color: var(--amber); }
 .verdict { font-family: var(--serif); font-size: 19px; }
 .summary { line-height: 1.8; }

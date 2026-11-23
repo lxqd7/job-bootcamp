@@ -39,6 +39,15 @@ const activeReview = computed(() => {
   const status = review.value?.taskStatus
   return status === 'QUEUED' || status === 'RUNNING' || status === 'RETRY_WAIT'
 })
+const reviewFailed = computed(() => review.value?.taskStatus === 'FAILED')
+const reviewStep = computed(() => {
+  const status = review.value?.taskStatus
+  if (status === 'SUCCEEDED') return 3
+  if (status === 'FAILED') return 4
+  if (status === 'RUNNING' || status === 'RETRY_WAIT') return 2
+  if (status === 'QUEUED') return 1
+  return 0
+})
 const versionHint = computed(() => {
   if (!submission.value || !assignment.value) return ''
   if (assignment.value.currentVersionNo == null) return ''
@@ -104,6 +113,13 @@ function reviewStateLabel(state: string | undefined): string {
     default:
       return state ?? '读取中'
   }
+}
+
+function reviewStepClass(step: number): string {
+  if (reviewStep.value === 4 && step >= 2) return 'step failed'
+  if (reviewStep.value >= step) return 'step done'
+  if (reviewStep.value + 1 === step) return 'step active'
+  return 'step'
 }
 
 function safeErrorText(code: string | null): string {
@@ -245,17 +261,35 @@ onBeforeUnmount(() => {
         <section class="paper review">
           <header class="review-head">
             <div>
-              <h2>AI 点评</h2>
-              <p class="muted">{{ reviewStateLabel(review?.taskStatus) }}</p>
+              <p class="stage">AI 点评 · 静态检查</p>
+              <h2>{{ review?.taskStatus ? reviewStateLabel(review.taskStatus) : '读取点评状态' }}</h2>
             </div>
             <span v-if="review?.feedback?.isMock" class="mock-tag">固定样例 · MOCK（未调用真实 AI）</span>
+            <span v-else-if="review?.taskStatus === 'SUCCEEDED'" class="real-tag">外部 AI 辅助点评</span>
           </header>
 
-          <p v-if="reviewError" class="form-error" role="alert">{{ reviewError }}</p>
-          <p v-if="activeReview" class="waiting">点评任务仍在处理，页面会自动刷新；离开页面后停止轮询。</p>
-          <p v-else-if="review?.taskStatus === 'FAILED'" class="failed">
-            {{ safeErrorText(review.safeErrorCode) }}没有单独重试点评的按钮。
+          <ol class="status-track" aria-label="点评进度">
+            <li class="step done">已提交</li>
+            <li :class="reviewStepClass(2)">点评处理中</li>
+            <li :class="reviewStepClass(3)">点评完成</li>
+          </ol>
+
+          <p v-if="reviewError" class="form-error" role="alert">
+            {{ reviewError }}
+            <button class="link-button" type="button" @click="refreshReview">刷新状态</button>
           </p>
+          <div v-if="activeReview" class="waiting-panel" role="status">
+            <p><strong>{{ reviewStateLabel(review?.taskStatus) }}</strong> · 页面每 2 秒自动刷新，30 秒后改为 5 秒；离开页面后停止。</p>
+            <p class="muted">提交记录和答案已保存；点评过程不影响学习进度。</p>
+          </div>
+          <div v-else-if="reviewFailed" class="failure-panel">
+            <strong>点评失败</strong>
+            <p>{{ safeErrorText(review?.safeErrorCode ?? null) }}</p>
+            <p class="muted">提交记录、答案和参考实现已保留；本次任务不会自动重试，也没有单独的重试按钮。</p>
+            <RouterLink v-if="submission" class="btn small-btn" :to="`/assignments/${submission.assignmentId}`">
+              返回作业重新作答
+            </RouterLink>
+          </div>
 
           <template v-if="review?.feedback">
             <p class="verdict">{{ verdictLabel(review.feedback.verdict) }}</p>
@@ -277,7 +311,10 @@ onBeforeUnmount(() => {
               {{ review.feedback.limitations?.length ? review.feedback.limitations.join('；') : '无' }}
             </p>
           </template>
-          <p class="fine-print">代码提交后发送给外部 AI 服务辅助点评；提交记录和答案保存在本系统。</p>
+          <p class="fine-print">
+            AI 点评为静态检查，不执行代码、不提供数值评分；学生不能选择模型，也不能单独重试点评。
+            代码提交后发送给外部 AI 服务辅助点评，提交记录和答案保存在本系统。
+          </p>
         </section>
 
         <section class="paper reference">
@@ -331,8 +368,19 @@ h2 { font-family: var(--serif); font-size: 20px; font-weight: 500; }
 .review-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
 .muted { color: var(--muted); font-size: 12px; }
 .mock-tag { padding: 2px 8px; border: 1px solid var(--amber); color: var(--amber); font-size: 11px; }
-.waiting { color: var(--muted); }
-.failed { color: var(--amber); }
+.real-tag { padding: 2px 8px; border: 1px solid var(--pine); color: var(--pine); font-size: 11px; }
+.status-track { display: flex; gap: 0; margin: 18px 0; padding: 0; list-style: none; counter-reset: review-step; }
+.status-track .step { position: relative; flex: 1; padding: 9px 10px 9px 26px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; counter-increment: review-step; }
+.status-track .step::before { content: counter(review-step); position: absolute; left: 6px; top: 7px; display: grid; width: 15px; height: 15px; place-items: center; border: 1px solid var(--line); border-radius: 50%; font-size: 10px; }
+.status-track .step.done { color: var(--pine); border-color: var(--pine); }
+.status-track .step.active { color: var(--ink); border-color: var(--ink); }
+.status-track .step.failed { color: var(--amber); border-color: var(--amber); }
+.waiting-panel { margin: 14px 0; padding: 12px 14px; border-left: 3px solid var(--pine); background: rgba(46, 94, 78, .04); font-size: 13px; line-height: 1.7; }
+.waiting-panel p { margin: 0 0 4px; }
+.failure-panel { display: grid; gap: 8px; margin: 14px 0; padding: 14px; border: 1px solid var(--amber); background: rgba(164, 98, 42, .05); font-size: 13px; line-height: 1.7; }
+.failure-panel strong { color: var(--amber); }
+.failure-panel p { margin: 0; }
+.failure-panel .small-btn { justify-self: start; padding: 5px 12px; font-size: 13px; }
 .verdict { font-family: var(--serif); font-size: 19px; }
 .summary { line-height: 1.8; }
 .issues { padding-left: 20px; }
