@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.common.web.TraceContext;
+import com.jobbootcamp.marketing.domain.ExcellentRevocation;
 import com.jobbootcamp.marketing.domain.OutboxEvent;
 import com.jobbootcamp.marketing.domain.PointsAccount;
 import com.jobbootcamp.marketing.domain.PointsDayQuota;
@@ -18,6 +19,7 @@ import com.jobbootcamp.marketing.domain.dto.SignResult;
 import com.jobbootcamp.marketing.domain.dto.SignStatus;
 import com.jobbootcamp.marketing.domain.dto.TestAccountState;
 import com.jobbootcamp.marketing.infrastructure.OutboxEventMapper;
+import com.jobbootcamp.marketing.infrastructure.ExcellentRevocationMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsAccountMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsDayQuotaMapper;
 import com.jobbootcamp.marketing.infrastructure.PointsLedgerMapper;
@@ -49,6 +51,7 @@ public class PointsService {
     public static final String TYPE_VIDEO = "VIDEO";
     public static final String TYPE_SIGN = "SIGN";
     public static final String TYPE_EXCELLENT = "EXCELLENT";
+    public static final String TYPE_REVOKE = "REVOKE";
     private static final int EXCELLENT_POINTS = 5;
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final String PROJECTION_EVENT = "marketing.projection-changed.v1";
@@ -58,6 +61,7 @@ public class PointsService {
     private final PointsDayQuotaMapper dayQuotaMapper;
     private final PointsMonthMapper monthMapper;
     private final OutboxEventMapper outboxEventMapper;
+    private final ExcellentRevocationMapper revocationMapper;
     private final SignRecordMapper signMapper;
     private final SignCacheService signCacheService;
     private final TransactionTemplate transactionTemplate;
@@ -69,6 +73,7 @@ public class PointsService {
                          PointsDayQuotaMapper dayQuotaMapper,
                          PointsMonthMapper monthMapper,
                          OutboxEventMapper outboxEventMapper,
+                         ExcellentRevocationMapper revocationMapper,
                          SignRecordMapper signMapper,
                          SignCacheService signCacheService,
                          PlatformTransactionManager transactionManager,
@@ -78,6 +83,7 @@ public class PointsService {
         this.dayQuotaMapper = dayQuotaMapper;
         this.monthMapper = monthMapper;
         this.outboxEventMapper = outboxEventMapper;
+        this.revocationMapper = revocationMapper;
         this.signMapper = signMapper;
         this.signCacheService = signCacheService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -176,8 +182,99 @@ public class PointsService {
         if (raced != null) {
             return toResult(raced, true);
         }
-        return applyReward(account, userId, TYPE_EXCELLENT, businessKey, EXCELLENT_POINTS,
-                businessDate, occurredAt, null, nowUtc);
+        PointsAwardResult result = applyReward(account, userId, TYPE_EXCELLENT, businessKey,
+                EXCELLENT_POINTS, businessDate, occurredAt, null, nowUtc);
+        // 撤回事件可能先到：同一事务内先奖励再撤回，最终净 0，不产生负月分。
+        applyPendingRevoke(noteId, result.available(), result.debt(), nowUtc);
+        return result;
+    }
+
+    /**
+     * 管理员撤回优秀奖励。先到但找不到原奖励时只落 pending，等奖励事件到达后再同一账户锁下撤回；
+     * 重复事件通过 REVOKE 业务键和 pending 已应用状态保持幂等。
+     */
+    public void revokeExcellent(long noteId, String originalEventId, String reason, Instant occurredAt) {
+        if (noteId <= 0 || originalEventId == null || originalEventId.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "撤回事件参数不合法");
+        }
+        String businessKey = Long.toString(noteId);
+        PointsLedger original = findLedger(TYPE_EXCELLENT, businessKey);
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        if (original != null) {
+            final long authorId = original.getUserId();
+            rowTemplate.executeWithoutResult(status -> accountMapper.insertIfAbsent(authorId, nowUtc));
+        }
+        transactionTemplate.executeWithoutResult(status -> {
+            PointsAccount locked = null;
+            if (original != null) {
+                locked = accountMapper.selectForUpdate(original.getUserId());
+            }
+            revocationMapper.insertPending(noteId, originalEventId, reason == null ? "" : reason,
+                    LocalDateTime.ofInstant(occurredAt, ZoneOffset.UTC), nowUtc);
+            ExcellentRevocation revocation = revocationMapper.selectForUpdate(noteId);
+            if (revocation == null || "APPLIED".equals(revocation.getState())) {
+                return;
+            }
+            PointsLedger originalNow = findLedger(TYPE_EXCELLENT, businessKey);
+            if (originalNow == null) {
+                return;
+            }
+            if (locked == null || !locked.getUserId().equals(originalNow.getUserId())) {
+                accountMapper.insertIfAbsent(originalNow.getUserId(), nowUtc);
+                locked = accountMapper.selectForUpdate(originalNow.getUserId());
+            }
+            applyRevocation(originalNow, revocation, locked.getAvailable(), locked.getDebt(), nowUtc);
+        });
+    }
+
+    private void applyPendingRevoke(long noteId, long available, long debt,
+                                    LocalDateTime nowUtc) {
+        ExcellentRevocation revocation = revocationMapper.selectForUpdate(noteId);
+        if (revocation == null || !"PENDING".equals(revocation.getState())) {
+            return;
+        }
+        PointsLedger original = findLedger(TYPE_EXCELLENT, Long.toString(noteId));
+        if (original == null) {
+            return;
+        }
+        applyRevocation(original, revocation, available, debt, nowUtc);
+    }
+
+    private void applyRevocation(PointsLedger original, ExcellentRevocation revocation,
+                                 long availableBefore, long debtBefore, LocalDateTime nowUtc) {
+        String revokeKey = Long.toString(original.getId());
+        PointsLedger existing = findLedger(TYPE_REVOKE, revokeKey);
+        if (existing != null) {
+            revocationMapper.markApplied(revocation.getNoteId(), existing.getId(), nowUtc);
+            return;
+        }
+        long take = Math.min(EXCELLENT_POINTS, availableBefore);
+        long debtAdded = EXCELLENT_POINTS - take;
+        long available = availableBefore - take;
+        long debt = debtBefore + debtAdded;
+        accountMapper.updateBalances(original.getUserId(), available, debt, nowUtc);
+        // 修正原获奖月份月榜，不足 5 分时只扣到 0，不产生负数。
+        monthMapper.subtractScore(original.getBusinessMonth(), original.getUserId(), EXCELLENT_POINTS);
+
+        PointsLedger ledger = new PointsLedger();
+        ledger.setUserId(original.getUserId());
+        ledger.setType(TYPE_REVOKE);
+        ledger.setBusinessKey(revokeKey);
+        ledger.setRewardPoints((long) -EXCELLENT_POINTS);
+        ledger.setBalanceDelta(-take);
+        ledger.setDebtDelta(debtAdded);
+        ledger.setRankDelta((long) -EXCELLENT_POINTS);
+        ledger.setBalanceAfter(available);
+        ledger.setDebtAfter(debt);
+        ledger.setBusinessDate(original.getBusinessDate());
+        ledger.setBusinessMonth(original.getBusinessMonth());
+        ledger.setOccurredAt(revocation.getOccurredAt());
+        ledger.setOriginalLedgerId(original.getId());
+        ledger.setResultCode("REVOKED");
+        ledger.setCreatedAt(nowUtc);
+        ledgerMapper.insert(ledger);
+        writeProjectionEvent(original.getUserId(), original.getBusinessMonth(), ledger.getId(), nowUtc);
+        revocationMapper.markApplied(revocation.getNoteId(), ledger.getId(), nowUtc);
     }
 
     public SignResult signIn(long userId) {

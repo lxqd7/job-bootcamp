@@ -16,6 +16,7 @@ import com.jobbootcamp.interaction.domain.dto.NoteRequest;
 import com.jobbootcamp.interaction.domain.dto.NoteSummary;
 import com.jobbootcamp.interaction.domain.dto.NoteView;
 import com.jobbootcamp.interaction.domain.dto.PageResponse;
+import com.jobbootcamp.interaction.domain.dto.RevokeRewardView;
 import com.jobbootcamp.interaction.infrastructure.ExcellentRewardMapper;
 import com.jobbootcamp.interaction.infrastructure.ModerationActionMapper;
 import com.jobbootcamp.interaction.infrastructure.NoteMapper;
@@ -43,6 +44,7 @@ public class NoteService {
     private static final String PRIVATE = "PRIVATE";
     private static final String PUBLIC = "COURSE_PUBLIC";
     private static final String EXCELLENT_EVENT = "interaction.note-excellent.v1";
+    private static final String REWARD_REVOKED_EVENT = "interaction.reward-revoked.v1";
 
     private final NoteMapper noteMapper;
     private final NoteVersionMapper versionMapper;
@@ -376,6 +378,61 @@ public class NoteService {
         event.setAttempt(0);
         event.setNextRetryAt(now);
         outboxMapper.insert(event);
+    }
+
+    /**
+     * 管理员违规撤回：必须填写原因，撤下优秀展示并标记奖励事实，写出撤回事件。
+     * 普通教师取消不触发该流程，因此不会扣分；重复撤回返回冲突，避免重复扣分。
+     */
+    @Transactional
+    public RevokeRewardView revokeReward(Long adminId, Long noteId, String reason) {
+        String checkedReason = text(reason, "撤回原因", 1, 1000);
+        Note note = noteMapper.selectForUpdate(noteId);
+        requireExisting(note);
+        ExcellentReward reward = rewardMapper.selectForUpdate(noteId);
+        if (reward == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "该笔记没有优秀奖励");
+        }
+        if (Boolean.TRUE.equals(reward.getRevoked())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "该笔记奖励已撤回");
+        }
+        LocalDateTime now = now();
+        reward.setRevoked(true);
+        reward.setRevokeReason(checkedReason);
+        reward.setRevokedAt(now);
+        rewardMapper.updateById(reward);
+        note.setExcellent(false);
+        note.setUpdatedAt(now);
+        noteMapper.updateById(note);
+
+        ModerationAction action = new ModerationAction();
+        action.setTargetType("NOTE");
+        action.setTargetId(noteId);
+        action.setAdminId(adminId);
+        action.setAction("REVOKE_EXCELLENT");
+        action.setReason(checkedReason);
+        action.setCreatedAt(now);
+        moderationMapper.insert(action);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("noteId", String.valueOf(noteId));
+        payload.put("originalRewardEventId", reward.getRewardEventId());
+        payload.put("rewardVersion", String.valueOf(reward.getRewardVersion()));
+        payload.put("reason", checkedReason);
+        payload.put("occurredAt", now.toInstant(ZoneOffset.UTC).toString());
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(UUID.randomUUID().toString());
+        event.setType(REWARD_REVOKED_EVENT);
+        event.setAggregateId(String.valueOf(noteId));
+        event.setAggregateVersion(reward.getRewardVersion() + 1);
+        event.setOccurredAt(now);
+        event.setPayload(write(payload));
+        event.setStatus("NEW");
+        event.setAttempt(0);
+        event.setNextRetryAt(now);
+        outboxMapper.insert(event);
+
+        return new RevokeRewardView(noteId, reward.getRewardVersion(), true, now, checkedReason);
     }
 
     private void requireCourseRead(Long userId, String role, Long courseId) {

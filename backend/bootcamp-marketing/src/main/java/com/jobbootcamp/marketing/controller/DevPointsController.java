@@ -10,6 +10,7 @@ import com.jobbootcamp.marketing.application.InboxProcessor;
 import com.jobbootcamp.marketing.application.OutboxRelay;
 import com.jobbootcamp.marketing.application.PointsService;
 import com.jobbootcamp.marketing.domain.dto.DebtFixtureRequest;
+import com.jobbootcamp.marketing.domain.dto.ExcellentRevocationFixtureRequest;
 import com.jobbootcamp.marketing.domain.dto.MonthScoreFixtureRequest;
 import com.jobbootcamp.marketing.domain.dto.PointsAwardResult;
 import com.jobbootcamp.marketing.domain.dto.SignDaysFixtureRequest;
@@ -101,6 +102,20 @@ public class DevPointsController {
     @PostMapping("/points/fixtures/debt")
     public ApiResponse<String> debtFixture(@Valid @RequestBody DebtFixtureRequest request) {
         pointsService.setDebtForTest(request.userId(), request.debt());
+        return ApiResponse.ok("OK");
+    }
+
+    /**
+     * 仅用于验收撤回先于奖励的乱序：正常撤回走 interaction.reward-revoked.v1。
+     */
+    @PostMapping("/points/fixtures/excellent-revocation")
+    public ApiResponse<String> excellentRevocationFixture(@RequestBody ExcellentRevocationFixtureRequest request) {
+        if (request == null || request.noteId() == null || request.originalEventId() == null
+                || request.occurredAt() == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "撤回夹具参数不完整");
+        }
+        pointsService.revokeExcellent(request.noteId(), request.originalEventId(),
+                request.reason(), request.occurredAt());
         return ApiResponse.ok("OK");
     }
 

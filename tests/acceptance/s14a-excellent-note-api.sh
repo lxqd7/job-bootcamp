@@ -203,7 +203,7 @@ STATUS=$(curl -s -o "$TMP_DIR/hide.json" -w '%{http_code}' -X POST -H 'Content-T
   -H "Authorization: Bearer $ADMIN_TOKEN" -d '{"reason":"S14A hidden"}' \
   "$BASE/api/v1/admin/content/NOTE/$N5/hide")
 expect_status 200 "$STATUS" "hide note" "$TMP_DIR/hide.json"
-expect_value "0" "$(db "SELECT COUNT(*) FROM bc_marketing.points_ledger WHERE type='EXCELLENT'")" "note creation did not award points"
+expect_value "0" "$(db "SELECT COUNT(*) FROM bc_marketing.points_ledger WHERE type='EXCELLENT' AND user_id=$S1_ID")" "note creation did not award points"
 
 echo "== Evaluation validates target, scope and revision =="
 STATUS=$(curl -s -o "$TMP_DIR/private-eval.json" -w '%{http_code}' -X PUT -H 'Content-Type: application/json' \

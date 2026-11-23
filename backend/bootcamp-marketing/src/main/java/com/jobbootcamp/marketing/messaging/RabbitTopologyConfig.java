@@ -50,4 +50,14 @@ public class RabbitTopologyConfig {
     public Binding noteExcellentBinding(Queue noteExcellentQueue, TopicExchange domainExchange) {
         return BindingBuilder.bind(noteExcellentQueue).to(domainExchange).with("interaction.note-excellent.v1");
     }
+
+    @Bean
+    public Queue rewardRevokedQueue() {
+        return new Queue("bc.marketing.interaction-reward-revoked.v1", true, false, false);
+    }
+
+    @Bean
+    public Binding rewardRevokedBinding(Queue rewardRevokedQueue, TopicExchange domainExchange) {
+        return BindingBuilder.bind(rewardRevokedQueue).to(domainExchange).with("interaction.reward-revoked.v1");
+    }
 }
