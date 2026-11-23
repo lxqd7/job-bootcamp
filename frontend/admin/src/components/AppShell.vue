@@ -20,6 +20,7 @@ const links = computed(() => {
       { to: '/admin/trades', label: '交易场景' },
       { to: '/admin/refunds', label: '退款对账' },
       { to: '/admin/assignments', label: '正式作业' },
+      { to: '/admin/moderation', label: '内容治理' },
       { to: '/admin/users', label: '账号管理' },
       { to: '/me', label: '个人资料' }
     ]

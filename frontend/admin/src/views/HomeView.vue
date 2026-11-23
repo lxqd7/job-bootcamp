@@ -30,6 +30,10 @@ const isAdmin = computed(() => me.value?.role === 'ADMIN')
         <h2>账号管理</h2>
         <p>查看、创建教师和管理员账号，调整启停与角色。禁用或改角色会让旧会话立即失效。</p>
       </RouterLink>
+      <RouterLink class="entry" to="/admin/moderation">
+        <h2>内容治理</h2>
+        <p>查看公开原创笔记的评优事实，填写原因违规撤回奖励，并核对治理审计。</p>
+      </RouterLink>
       <RouterLink class="entry" to="/me">
         <h2>个人资料</h2>
         <p>维护昵称与头像地址，修改密码后需要重新登录。</p>

@@ -86,6 +86,7 @@ onMounted(load)
         <header>
           <span class="tag">{{ typeLabel(item.type) }}</span>
           <span class="tag">{{ visibilityLabel(item.visibility) }}</span>
+          <span v-if="item.excellent" class="tag excellent">优秀</span>
           <span v-if="item.state !== 'VISIBLE'" class="tag warn">{{ stateLabel(item.state) }}</span>
           <span class="muted">{{ formatTime(item.updatedAt) }}</span>
         </header>
@@ -114,6 +115,7 @@ h1 { margin: 0; font-family: var(--serif); font-size: clamp(32px, 5vw, 44px); fo
 .note { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .note header { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
 .tag { padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.tag.excellent { border-color: var(--pine); background: var(--pine); color: var(--paper); }
 .tag.warn { color: var(--amber); border-color: var(--amber); }
 .muted { color: var(--muted); font-size: 12px; }
 .excerpt { line-height: 1.8; white-space: pre-wrap; }

@@ -32,6 +32,10 @@ function reasonText(item: PointsLedgerItem): string {
   if (item.resultCode === 'SKIPPED_DAILY_CAP') {
     return '达到每日 50 分上限，未发分'
   }
+  if (item.type === 'REVOKE') {
+    const debt = item.debtDelta > 0 ? `，记待扣回 ${item.debtDelta} 分` : ''
+    return `违规撤回 ${Math.abs(item.rewardPoints)} 分：扣余额 ${Math.abs(item.balanceDelta)} 分${debt}；原月榜 ${item.rankDelta}`
+  }
   if (item.debtDelta < 0) {
     return `奖励 ${item.rewardPoints} 分，先抵扣待扣回 ${-item.debtDelta} 分`
   }

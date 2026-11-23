@@ -101,6 +101,9 @@ onMounted(load)
           {{ note.state }}
         </p>
         <h1>{{ note.mine ? '我的笔记' : '公开笔记' }}</h1>
+        <p v-if="note.excellent" class="excellent">
+          优秀笔记 · 获评版本 v{{ note.excellentRevision ?? note.revision }}
+        </p>
         <p class="lead">
           作者：{{ note.authorDisplay }} · 更新于 {{ formatTime(note.updatedAt) }}
           <template v-if="note.courseId"> · <RouterLink :to="`/courses/${note.courseId}/notes`">课程笔记</RouterLink></template>
@@ -141,6 +144,7 @@ onMounted(load)
 .stage { margin: 0 0 10px; color: var(--muted); font-size: 13px; letter-spacing: .06em; }
 h1 { margin: 0; font-family: var(--serif); font-size: clamp(32px, 5vw, 44px); font-weight: 500; }
 .lead { color: var(--muted); line-height: 1.7; }
+.excellent { display: inline-block; margin: 8px 0 0; padding: 2px 8px; background: var(--pine); color: var(--paper); font-size: 12px; letter-spacing: .04em; }
 .snapshot { padding: 10px 12px; border-left: 3px solid var(--pine); color: var(--muted); font-size: 13px; line-height: 1.7; }
 .editor { display: grid; gap: 12px; margin-top: 24px; }
 .editor label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }

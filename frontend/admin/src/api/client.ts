@@ -2,6 +2,8 @@ import axios from 'axios'
 import { http } from './http'
 import type {
   ActivityView,
+  AdminExcellentRewardView,
+  AdminModerationAuditView,
   AdminOrderItem,
   AdminRefundItem,
   ApiEnvelope,
@@ -349,4 +351,51 @@ export async function loadTeacherNote(id: string): Promise<TeacherNoteDetail> {
   const { data } = await http.get<ApiEnvelope<TeacherNoteDetail>>(`/api/v1/notes/${id}`)
   if (data.code !== 'OK') throw new Error(data.message || '笔记加载失败')
   return data.data
+}
+
+export async function evaluateTeacherNote(id: string, contentRevision: number): Promise<TeacherNoteDetail> {
+  const { data } = await http.put<ApiEnvelope<TeacherNoteDetail>>(
+    `/api/v1/teacher/notes/${id}/excellent`, { contentRevision }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '评优失败')
+  return data.data
+}
+
+export async function cancelTeacherNote(id: string): Promise<TeacherNoteDetail> {
+  const { data } = await http.delete<ApiEnvelope<TeacherNoteDetail>>(
+    `/api/v1/teacher/notes/${id}/excellent`
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '取消评优失败')
+  return data.data
+}
+
+export async function loadExcellentRewards(
+  state: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<AdminExcellentRewardView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<AdminExcellentRewardView>>>(
+    '/api/v1/admin/excellent-rewards', { params: { state: state || undefined, page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '优秀奖励加载失败')
+  return data.data
+}
+
+export async function loadModerationAudits(
+  action: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<AdminModerationAuditView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<AdminModerationAuditView>>>(
+    '/api/v1/admin/moderation-actions', { params: { action: action || undefined, page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '审计记录加载失败')
+  return data.data
+}
+
+export async function revokeExcellentReward(noteId: string, reason: string): Promise<void> {
+  const { data } = await http.post<ApiEnvelope<unknown>>(
+    `/api/v1/admin/notes/${noteId}/revoke-reward`, { reason }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '撤回失败')
 }

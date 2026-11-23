@@ -114,6 +114,7 @@ onMounted(load)
         <article v-for="item in notes" :key="item.id" class="note">
           <header>
             <strong>{{ item.authorDisplay }}</strong>
+            <span v-if="item.excellent" class="tag excellent">优秀</span>
             <span class="muted">{{ formatTime(item.updatedAt) }}</span>
             <span v-if="item.mine" class="tag">我的</span>
           </header>
@@ -149,6 +150,7 @@ h2 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 500; }
 .note header { display: flex; gap: 10px; align-items: baseline; }
 .muted { color: var(--muted); font-size: 12px; }
 .tag { padding: 1px 6px; border: 1px solid var(--pine); color: var(--pine); font-size: 11px; }
+.tag.excellent { background: var(--pine); color: var(--paper); }
 .excerpt { color: var(--ink); line-height: 1.8; white-space: pre-wrap; }
 .actions { display: flex; gap: 16px; align-items: baseline; font-size: 13px; }
 .link-button { padding: 0; border: 0; background: transparent; color: var(--pine); cursor: pointer; }

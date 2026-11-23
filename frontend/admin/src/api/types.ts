@@ -523,6 +523,7 @@ export interface TeacherNoteSummary {
   revision: number
   createdAt: string
   updatedAt: string
+  excellent: boolean
   mine: boolean
 }
 
@@ -542,5 +543,35 @@ export interface TeacherNoteDetail {
   revision: number
   createdAt: string
   updatedAt: string
+  excellent: boolean
+  excellentRevision: number | null
   mine: boolean
+}
+
+export interface AdminExcellentRewardView {
+  noteId: string
+  courseId: string | null
+  noteExcerpt: string
+  noteState: string | null
+  excellent: boolean
+  authorId: string
+  authorDisplay: string
+  teacherId: string
+  teacherDisplay: string
+  contentRevision: number
+  awardedAt: string
+  revoked: boolean
+  revokeReason: string | null
+  revokedAt: string | null
+}
+
+export interface AdminModerationAuditView {
+  id: string
+  targetType: string
+  targetId: string
+  action: string
+  adminId: string
+  adminDisplay: string
+  reason: string
+  createdAt: string
 }

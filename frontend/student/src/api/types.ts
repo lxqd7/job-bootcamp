@@ -638,6 +638,7 @@ export interface NoteSummary {
   revision: number
   createdAt: string
   updatedAt: string
+  excellent: boolean
   mine: boolean
 }
 
@@ -657,5 +658,7 @@ export interface NoteDetail {
   revision: number
   createdAt: string
   updatedAt: string
+  excellent: boolean
+  excellentRevision: number | null
   mine: boolean
 }

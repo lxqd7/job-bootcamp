@@ -19,6 +19,7 @@ import AdminTradesView from '../views/AdminTradesView.vue'
 import AdminRefundsView from '../views/AdminRefundsView.vue'
 import AssignmentAdminView from '../views/AssignmentAdminView.vue'
 import ActivityAdminView from '../views/ActivityAdminView.vue'
+import AdminModerationView from '../views/AdminModerationView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import ForbiddenView from '../views/ForbiddenView.vue'
 
@@ -39,6 +40,7 @@ const router = createRouter({
     { path: '/admin/refunds', name: 'admin-refunds', component: AdminRefundsView, meta: { roles: ['ADMIN'] } },
     { path: '/admin/assignments', name: 'admin-assignments', component: AssignmentAdminView, meta: { roles: ['ADMIN'] } },
     { path: '/admin/activities', name: 'admin-activities', component: ActivityAdminView, meta: { roles: ['ADMIN'] } },
+    { path: '/admin/moderation', name: 'admin-moderation', component: AdminModerationView, meta: { roles: ['ADMIN'] } },
     { path: '/teacher', name: 'teacher-home', component: TeacherHomeView, meta: { roles: ['TEACHER', 'ADMIN'] } },
     { path: '/teacher/submissions', name: 'teacher-submissions', component: TeacherSubmissionsView, meta: { roles: ['TEACHER'] } },
     { path: '/teacher/benefits', name: 'teacher-benefits', component: TeacherBenefitsView, meta: { roles: ['TEACHER'] } },

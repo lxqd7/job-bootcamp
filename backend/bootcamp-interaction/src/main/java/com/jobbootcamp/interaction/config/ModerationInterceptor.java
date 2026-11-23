@@ -30,7 +30,8 @@ public class ModerationInterceptor implements HandlerInterceptor {
         String uri = request.getRequestURI();
         String required = uri.startsWith("/api/v1/admin/questions/")
                 ? "anonymous:trace"
-                : uri.endsWith("/revoke-reward") ? "points:revoke" : "community:moderate";
+                : uri.startsWith("/api/v1/admin/excellent-rewards") || uri.endsWith("/revoke-reward")
+                ? "points:revoke" : "community:moderate";
         if (!"ADMIN".equals(session.role()) || !permissions.contains(required)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "没有该管理操作的权限");
         }
