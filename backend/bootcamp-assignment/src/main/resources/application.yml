@@ -23,6 +23,11 @@ app:
     secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
   user:
     session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+  learning:
+    access-url: ${LEARNING_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/check}
+  ai:
+    mock-enabled: ${AI_MOCK_ENABLED:true}
+    mock-poll-ms: ${AI_MOCK_POLL_MS:800}
 
 management:
   endpoints:
