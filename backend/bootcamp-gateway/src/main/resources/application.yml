@@ -16,6 +16,10 @@ spring:
               uri: http://127.0.0.1:18083
               predicates:
                 - Path=/api/v1/orders/*/refund-applications,/api/v1/refund-applications/**
+            - id: assignment-service
+              uri: http://127.0.0.1:18085
+              predicates:
+                - Path=/api/v1/admin/assignments/**
             - id: trade-service
               uri: http://127.0.0.1:18084
               predicates:

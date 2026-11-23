@@ -268,3 +268,29 @@ export interface AdminRefundItem {
   acceptedAt: string
   updatedAt: string
 }
+
+export interface AssignmentSummary {
+  id: string
+  kind: string
+  courseId: string
+  chapterId: string | null
+  status: string
+  currentVersionNo: number | null
+  revision: number
+  updatedAt: string
+}
+
+export interface AssignmentView {
+  id: string
+  kind: string
+  courseId: string
+  chapterId: string | null
+  status: string
+  currentVersionNo: number | null
+  draftPublicBody: unknown
+  draftAnswerBody: unknown
+  currentPublicBody: unknown
+  currentAnswerBody: unknown
+  revision: number
+  updatedAt: string
+}

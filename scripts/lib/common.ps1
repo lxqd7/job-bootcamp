@@ -32,10 +32,12 @@ function Initialize-LocalEnv {
     if (-not $env:USER_DB_NAME) { $env:USER_DB_NAME = 'bc_user' }
     if (-not $env:LEARNING_DB_NAME) { $env:LEARNING_DB_NAME = 'bc_learning' }
     if (-not $env:MARKETING_DB_NAME) { $env:MARKETING_DB_NAME = 'bc_marketing' }
+    if (-not $env:ASSIGNMENT_DB_NAME) { $env:ASSIGNMENT_DB_NAME = 'bc_assignment' }
     if (-not $env:DB_USERNAME) { $env:DB_USERNAME = 'root' }
     if (-not $env:COURSE_PORT) { $env:COURSE_PORT = '18082' }
     if (-not $env:LEARNING_PORT) { $env:LEARNING_PORT = '18083' }
     if (-not $env:MARKETING_PORT) { $env:MARKETING_PORT = '18087' }
+    if (-not $env:ASSIGNMENT_PORT) { $env:ASSIGNMENT_PORT = '18085' }
     if (-not (Test-Path Env:DB_PASSWORD)) { $env:DB_PASSWORD = '' }
 }
 

@@ -40,6 +40,7 @@ public enum ErrorCode {
     DATA_INTEGRITY(HttpStatus.INTERNAL_SERVER_ERROR, "业务数据完整性异常"),
     ALREADY_OWNED(HttpStatus.CONFLICT, "已拥有该课程"),
     REFUND_IN_PROGRESS(HttpStatus.CONFLICT, "该课程退款处理中"),
+    ASSIGNMENT_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "作业内容不合法"),
     INPUT_TOO_LARGE(HttpStatus.UNPROCESSABLE_ENTITY, "提交内容超过大小限制");
 
     private final HttpStatus status;

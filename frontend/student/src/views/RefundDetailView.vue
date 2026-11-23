@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppShell from '../components/AppShell.vue'
 import { describeTradeError, loadRefund } from '../api/client'
@@ -37,8 +37,6 @@ async function load(): Promise<void> {
 onMounted(() => {
   void load()
 })
-
-onBeforeUnmount(() => undefined)
 </script>
 
 <template>

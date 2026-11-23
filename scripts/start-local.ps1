@@ -36,11 +36,12 @@ try {
     $learningJar = Join-Path $root 'backend\bootcamp-learning\target\bootcamp-learning-0.1.0-SNAPSHOT.jar'
     $tradeJar = Join-Path $root 'backend\bootcamp-trade\target\bootcamp-trade-0.1.0-SNAPSHOT.jar'
     $marketingJar = Join-Path $root 'backend\bootcamp-marketing\target\bootcamp-marketing-0.1.0-SNAPSHOT.jar'
+    $assignmentJar = Join-Path $root 'backend\bootcamp-assignment\target\bootcamp-assignment-0.1.0-SNAPSHOT.jar'
     $gatewayJar = Join-Path $root 'backend\bootcamp-gateway\target\bootcamp-gateway-0.1.0-SNAPSHOT.jar'
     $cmd = (Get-Command cmd.exe).Source
     $frontendDir = Join-Path $root 'frontend'
 
-    Write-Info 'Starting gateway, course service, user service, learning service, trade service, marketing service and the two frontend dev servers...'
+    Write-Info 'Starting gateway, course, user, learning, trade, marketing, assignment and the two frontend dev servers...'
     $gateway = Start-Process -FilePath $java -ArgumentList @('-jar', $gatewayJar) `
         -WorkingDirectory $root `
         -RedirectStandardOutput (Join-Path $logDir 'gateway.out.log') `
@@ -77,6 +78,12 @@ try {
         -RedirectStandardError (Join-Path $logDir 'trade.err.log') `
         -PassThru -WindowStyle Hidden
 
+    $assignment = Start-Process -FilePath $java -ArgumentList @('-jar', $assignmentJar) `
+        -WorkingDirectory $root `
+        -RedirectStandardOutput (Join-Path $logDir 'assignment.out.log') `
+        -RedirectStandardError (Join-Path $logDir 'assignment.err.log') `
+        -PassThru -WindowStyle Hidden
+
     $student = $null
     $admin = $null
     if (-not $SkipFrontend) {
@@ -97,6 +104,7 @@ try {
     $marketingPort = if ($env:MARKETING_PORT) { [int]$env:MARKETING_PORT } else { 18087 }
     $learningPort = if ($env:LEARNING_PORT) { [int]$env:LEARNING_PORT } else { 18083 }
     $tradePort = if ($env:TRADE_PORT) { [int]$env:TRADE_PORT } else { 18084 }
+    $assignmentPort = if ($env:ASSIGNMENT_PORT) { [int]$env:ASSIGNMENT_PORT } else { 18085 }
     $gatewayPort = if ($env:GATEWAY_PORT) { [int]$env:GATEWAY_PORT } else { 18080 }
     $records = @(
         [pscustomobject]@{ kind = 'gateway'; pid = $gateway.Id; port = $gatewayPort; url = "http://127.0.0.1:$gatewayPort/actuator/health" },
@@ -104,6 +112,7 @@ try {
         [pscustomobject]@{ kind = 'user'; pid = $user.Id; port = $userPort; url = "http://127.0.0.1:$userPort/actuator/health" },
         [pscustomobject]@{ kind = 'learning'; pid = $learning.Id; port = $learningPort; url = "http://127.0.0.1:$learningPort/actuator/health" },
         [pscustomobject]@{ kind = 'trade'; pid = $trade.Id; port = $tradePort; url = "http://127.0.0.1:$tradePort/actuator/health" },
+        [pscustomobject]@{ kind = 'assignment'; pid = $assignment.Id; port = $assignmentPort; url = "http://127.0.0.1:$assignmentPort/actuator/health" },
         [pscustomobject]@{ kind = 'marketing'; pid = $marketing.Id; port = $marketingPort; url = "http://127.0.0.1:$marketingPort/actuator/health" }
     )
     if (-not $SkipFrontend) {
@@ -134,6 +143,7 @@ try {
     Write-Ok "User service   : http://127.0.0.1:$userPort/actuator/health"
     Write-Ok "Learning       : http://127.0.0.1:$learningPort/actuator/health"
     Write-Ok "Trade          : http://127.0.0.1:$tradePort/actuator/health"
+    Write-Ok "Assignment    : http://127.0.0.1:$assignmentPort/actuator/health"
     Write-Ok "Marketing      : http://127.0.0.1:$marketingPort/actuator/health"
     if (-not $SkipFrontend) {
         Write-Ok 'Student app    : http://localhost:15173/'

@@ -1,6 +1,15 @@
 import axios from 'axios'
 import { http } from './http'
-import type { ActivityView, AdminOrderItem, AdminRefundItem, ApiEnvelope, CouponRuleView, PageResponse } from './types'
+import type {
+  ActivityView,
+  AdminOrderItem,
+  AdminRefundItem,
+  ApiEnvelope,
+  AssignmentSummary,
+  AssignmentView,
+  CouponRuleView,
+  PageResponse
+} from './types'
 
 export async function loadHealth(): Promise<{ status: string }> {
   const { data } = await http.get<{ status: string }>('/actuator/health')
@@ -129,4 +138,58 @@ export function describeError(error: unknown): string {
     return '无法连接服务，请确认本地服务已启动。'
   }
   return error instanceof Error ? error.message : '发生未知错误。'
+}
+export async function loadAssignments(
+  courseId: string,
+  status: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<AssignmentSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<AssignmentSummary>>>('/api/v1/admin/assignments', {
+    params: {
+      courseId: courseId ? Number(courseId) : undefined,
+      status: status || undefined,
+      page,
+      pageSize
+    }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '作业列表加载失败')
+  return data.data
+}
+
+export async function loadAssignment(id: string): Promise<AssignmentView> {
+  const { data } = await http.get<ApiEnvelope<AssignmentView>>(`/api/v1/admin/assignments/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '作业详情加载失败')
+  return data.data
+}
+
+export async function createAssignment(payload: Record<string, unknown>): Promise<AssignmentView> {
+  const { data } = await http.post<ApiEnvelope<AssignmentView>>('/api/v1/admin/assignments', payload)
+  if (data.code !== 'OK') throw new Error(data.message || '作业草稿创建失败')
+  return data.data
+}
+
+export async function updateAssignment(id: string, payload: Record<string, unknown>): Promise<AssignmentView> {
+  const { data } = await http.patch<ApiEnvelope<AssignmentView>>(`/api/v1/admin/assignments/${id}`, payload)
+  if (data.code !== 'OK') throw new Error(data.message || '作业草稿保存失败')
+  return data.data
+}
+
+export async function publishAssignment(id: string, revision: number): Promise<AssignmentView> {
+  const { data } = await http.post<ApiEnvelope<AssignmentView>>(`/api/v1/admin/assignments/${id}/publish`, { revision })
+  if (data.code !== 'OK') throw new Error(data.message || '作业发布失败')
+  return data.data
+}
+
+export async function offlineAssignment(id: string, revision: number): Promise<AssignmentView> {
+  const { data } = await http.post<ApiEnvelope<AssignmentView>>(`/api/v1/admin/assignments/${id}/offline`, { revision })
+  if (data.code !== 'OK') throw new Error(data.message || '作业下架失败')
+  return data.data
+}
+
+export async function deleteAssignment(id: string, revision: number): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<null>>(`/api/v1/admin/assignments/${id}`, {
+    params: { revision }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '作业删除失败')
 }
