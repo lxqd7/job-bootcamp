@@ -27,6 +27,7 @@
         <module>bootcamp-trade</module>
         <module>bootcamp-marketing</module>
         <module>bootcamp-assignment</module>
+        <module>bootcamp-interaction</module>
         <module>bootcamp-gateway</module>
     </modules>
 
