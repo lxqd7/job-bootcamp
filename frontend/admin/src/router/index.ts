@@ -13,6 +13,8 @@ import MediaAdminView from '../views/MediaAdminView.vue'
 import TeacherHomeView from '../views/TeacherHomeView.vue'
 import TeacherSubmissionsView from '../views/TeacherSubmissionsView.vue'
 import TeacherBenefitsView from '../views/TeacherBenefitsView.vue'
+import TeacherQuestionsView from '../views/TeacherQuestionsView.vue'
+import TeacherNotesView from '../views/TeacherNotesView.vue'
 import AdminTradesView from '../views/AdminTradesView.vue'
 import AdminRefundsView from '../views/AdminRefundsView.vue'
 import AssignmentAdminView from '../views/AssignmentAdminView.vue'
@@ -40,6 +42,8 @@ const router = createRouter({
     { path: '/teacher', name: 'teacher-home', component: TeacherHomeView, meta: { roles: ['TEACHER', 'ADMIN'] } },
     { path: '/teacher/submissions', name: 'teacher-submissions', component: TeacherSubmissionsView, meta: { roles: ['TEACHER'] } },
     { path: '/teacher/benefits', name: 'teacher-benefits', component: TeacherBenefitsView, meta: { roles: ['TEACHER'] } },
+    { path: '/teacher/questions', name: 'teacher-questions', component: TeacherQuestionsView, meta: { roles: ['TEACHER'] } },
+    { path: '/teacher/notes', name: 'teacher-notes', component: TeacherNotesView, meta: { roles: ['TEACHER'] } },
     { path: '/me', name: 'profile', component: ProfileView, meta: { roles: ['TEACHER', 'ADMIN'] } },
     { path: '/forbidden', name: 'forbidden', component: ForbiddenView, meta: { public: true } }
   ]

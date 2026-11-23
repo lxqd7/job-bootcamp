@@ -20,6 +20,10 @@ import LearningView from '../views/LearningView.vue'
 import AssignmentView from '../views/AssignmentView.vue'
 import SubmissionDetailView from '../views/SubmissionDetailView.vue'
 import RouteBenefitsView from '../views/RouteBenefitsView.vue'
+import CourseQuestionsView from '../views/CourseQuestionsView.vue'
+import CourseNotesView from '../views/CourseNotesView.vue'
+import NoteDetailView from '../views/NoteDetailView.vue'
+import MyNotesView from '../views/MyNotesView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import OrderListView from '../views/OrderListView.vue'
 import OrderDetailView from '../views/OrderDetailView.vue'
@@ -36,6 +40,10 @@ const router = createRouter({
     { path: '/', name: 'home', component: HomeView, meta: { roles: ['STUDENT'] } },
     { path: '/courses', name: 'courses', component: CourseListView, meta: { roles: ['STUDENT'] } },
     { path: '/courses/:id', name: 'course-detail', component: CourseDetailView, meta: { roles: ['STUDENT'] } },
+    { path: '/courses/:id/questions', name: 'course-questions', component: CourseQuestionsView, meta: { roles: ['STUDENT'] } },
+    { path: '/courses/:id/notes', name: 'course-notes', component: CourseNotesView, meta: { roles: ['STUDENT'] } },
+    { path: '/notes/:id', name: 'note-detail', component: NoteDetailView, meta: { roles: ['STUDENT'] } },
+    { path: '/me/notes', name: 'my-notes', component: MyNotesView, meta: { roles: ['STUDENT'] } },
     { path: '/routes', name: 'routes', component: RouteListView, meta: { roles: ['STUDENT'] } },
     { path: '/routes/:id', name: 'route-detail', component: RouteDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/routes/:id/benefits', name: 'route-benefits', component: RouteBenefitsView, meta: { roles: ['STUDENT'] } },

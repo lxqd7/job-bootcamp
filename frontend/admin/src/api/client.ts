@@ -15,7 +15,13 @@ import type {
   TeacherCourseItem,
   TeacherRouteItem,
   TeacherSubmissionSummary,
-  TeacherSubmissionView
+  TeacherSubmissionView,
+  TeacherQuestionSummary,
+  TeacherQuestionThread,
+  TeacherAnswerDetail,
+  TeacherCommentDetail,
+  TeacherNoteSummary,
+  TeacherNoteDetail
 } from './types'
 
 export async function loadHealth(): Promise<{ status: string }> {
@@ -291,4 +297,56 @@ export async function deleteTeacherBenefit(id: string, revision: number): Promis
     params: { revision }
   })
   if (data.code !== 'OK') throw new Error(data.message || '福利题删除失败')
+}
+
+export async function loadTeacherQuestions(
+  courseId: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<TeacherQuestionSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<TeacherQuestionSummary>>>(
+    `/api/v1/courses/${courseId}/questions`, { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '课程问题加载失败')
+  return data.data
+}
+
+export async function loadTeacherQuestion(id: string): Promise<TeacherQuestionThread> {
+  const { data } = await http.get<ApiEnvelope<TeacherQuestionThread>>(`/api/v1/questions/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '问题详情加载失败')
+  return data.data
+}
+
+export async function createTeacherAnswer(questionId: string, body: string): Promise<TeacherAnswerDetail> {
+  const { data } = await http.post<ApiEnvelope<TeacherAnswerDetail>>(
+    `/api/v1/questions/${questionId}/answers`, { body }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '回答失败')
+  return data.data
+}
+
+export async function loadAnswerComments(answerId: string): Promise<PageResponse<TeacherCommentDetail>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<TeacherCommentDetail>>>(
+    `/api/v1/answers/${answerId}/comments`, { params: { page: 1, pageSize: 50 } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '评论加载失败')
+  return data.data
+}
+
+export async function loadTeacherCourseNotes(
+  courseId: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<TeacherNoteSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<TeacherNoteSummary>>>(
+    `/api/v1/courses/${courseId}/notes`, { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '公开笔记加载失败')
+  return data.data
+}
+
+export async function loadTeacherNote(id: string): Promise<TeacherNoteDetail> {
+  const { data } = await http.get<ApiEnvelope<TeacherNoteDetail>>(`/api/v1/notes/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '笔记加载失败')
+  return data.data
 }

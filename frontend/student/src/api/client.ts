@@ -33,7 +33,15 @@ import type {
   StudentAssignment,
   StudentBenefit,
   SubmissionDetail,
-  SubmissionSummary
+  SubmissionSummary,
+  QuestionSummary,
+  QuestionDetail,
+  QuestionThread,
+  AnswerDetail,
+  CommentDetail,
+  LikeResult,
+  NoteSummary,
+  NoteDetail
 } from './types'
 
 export interface CategoryResult {
@@ -562,5 +570,134 @@ export async function loadBenefitSubmissions(
     { params: { page, pageSize } }
   )
   if (data.code !== 'OK') throw new Error(data.message || '福利题提交历史加载失败')
+  return data.data
+}
+
+export async function loadQuestions(courseId: string, page = 1, pageSize = 20): Promise<PageResponse<QuestionSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<QuestionSummary>>>(
+    `/api/v1/courses/${courseId}/questions`, { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '问题列表加载失败')
+  return data.data
+}
+
+export async function createQuestion(
+  courseId: string,
+  payload: { lessonId?: number | null; title: string; body: string; anonymous: boolean }
+): Promise<QuestionDetail> {
+  const { data } = await http.post<ApiEnvelope<QuestionDetail>>(
+    `/api/v1/courses/${courseId}/questions`, payload
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '提问失败')
+  return data.data
+}
+
+export async function loadQuestion(id: string, page = 1, pageSize = 20): Promise<QuestionThread> {
+  const { data } = await http.get<ApiEnvelope<QuestionThread>>(`/api/v1/questions/${id}`, {
+    params: { page, pageSize }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '问题详情加载失败')
+  return data.data
+}
+
+export async function deleteQuestion(id: string): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<null>>(`/api/v1/questions/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '删除问题失败')
+}
+
+export async function createAnswer(questionId: string, body: string): Promise<AnswerDetail> {
+  const { data } = await http.post<ApiEnvelope<AnswerDetail>>(
+    `/api/v1/questions/${questionId}/answers`, { body }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '回答失败')
+  return data.data
+}
+
+export async function deleteAnswer(id: string): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<null>>(`/api/v1/answers/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '删除回答失败')
+}
+
+export async function loadComments(answerId: string, page = 1, pageSize = 50): Promise<PageResponse<CommentDetail>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<CommentDetail>>>(
+    `/api/v1/answers/${answerId}/comments`, { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '评论加载失败')
+  return data.data
+}
+
+export async function createComment(answerId: string, body: string): Promise<CommentDetail> {
+  const { data } = await http.post<ApiEnvelope<CommentDetail>>(
+    `/api/v1/answers/${answerId}/comments`, { body }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '评论失败')
+  return data.data
+}
+
+export async function deleteComment(id: string): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<null>>(`/api/v1/comments/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '删除评论失败')
+}
+
+export async function likeTarget(type: 'ANSWER' | 'COMMENT', id: string): Promise<LikeResult> {
+  const { data } = await http.put<ApiEnvelope<LikeResult>>(`/api/v1/likes/${type}/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '点赞失败')
+  return data.data
+}
+
+export async function unlikeTarget(type: 'ANSWER' | 'COMMENT', id: string): Promise<LikeResult> {
+  const { data } = await http.delete<ApiEnvelope<LikeResult>>(`/api/v1/likes/${type}/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '取消点赞失败')
+  return data.data
+}
+
+export async function loadCourseNotes(courseId: string, page = 1, pageSize = 20): Promise<PageResponse<NoteSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<NoteSummary>>>(
+    `/api/v1/courses/${courseId}/notes`, { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '公开笔记加载失败')
+  return data.data
+}
+
+export async function createNote(
+  courseId: string,
+  payload: { lessonId?: number | null; positionMs?: number | null; body: string; visibility: 'PRIVATE' | 'COURSE_PUBLIC' }
+): Promise<NoteDetail> {
+  const { data } = await http.post<ApiEnvelope<NoteDetail>>(`/api/v1/courses/${courseId}/notes`, payload)
+  if (data.code !== 'OK') throw new Error(data.message || '创建笔记失败')
+  return data.data
+}
+
+export async function loadMyNotes(type = '', page = 1, pageSize = 20): Promise<PageResponse<NoteSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<NoteSummary>>>('/api/v1/me/notes', {
+    params: { type: type || undefined, page, pageSize }
+  })
+  if (data.code !== 'OK') throw new Error(data.message || '我的笔记加载失败')
+  return data.data
+}
+
+export async function loadNote(id: string): Promise<NoteDetail> {
+  const { data } = await http.get<ApiEnvelope<NoteDetail>>(`/api/v1/notes/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '笔记加载失败')
+  return data.data
+}
+
+export async function updateNote(
+  id: string,
+  payload: { body?: string; visibility?: 'PRIVATE' | 'COURSE_PUBLIC'; revision: number }
+): Promise<NoteDetail> {
+  const { data } = await http.patch<ApiEnvelope<NoteDetail>>(`/api/v1/notes/${id}`, payload)
+  if (data.code !== 'OK') throw new Error(data.message || '笔记保存失败')
+  return data.data
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<null>>(`/api/v1/notes/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '笔记删除失败')
+}
+
+export async function collectNote(id: string): Promise<NoteDetail> {
+  const { data } = await http.post<ApiEnvelope<NoteDetail>>(`/api/v1/notes/${id}/collect`)
+  if (data.code !== 'OK') throw new Error(data.message || '采集失败')
   return data.data
 }

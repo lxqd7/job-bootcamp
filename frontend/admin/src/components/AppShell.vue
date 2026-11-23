@@ -29,6 +29,8 @@ const links = computed(() => {
     { to: '/teacher', label: '教师工作区' },
     { to: '/teacher/submissions', label: '学生作答' },
     { to: '/teacher/benefits', label: '福利题' },
+    { to: '/teacher/questions', label: '答疑' },
+    { to: '/teacher/notes', label: '公开笔记' },
     { to: '/me', label: '个人资料' }
   ]
 })

@@ -310,6 +310,17 @@ onBeforeUnmount(clearTimers)
             </RouterLink>
             <p class="assignment-note">作业与视频进度分别记录，作答不影响学习或退款。</p>
           </section>
+          <section class="assignment-entry">
+            <h2>课程社区</h2>
+            <RouterLink class="assignment-link" :to="`/courses/${courseId}/questions`">
+              <span>课程问答</span>
+              <span class="assignment-state">提问 / 回答</span>
+            </RouterLink>
+            <RouterLink class="assignment-link" :to="`/courses/${courseId}/notes`">
+              <span>公开笔记</span>
+              <span class="assignment-state">查看 / 采集</span>
+            </RouterLink>
+          </section>
         </aside>
 
         <main class="player-area">

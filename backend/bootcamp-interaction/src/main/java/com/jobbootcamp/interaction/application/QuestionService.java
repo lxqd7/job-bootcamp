@@ -21,6 +21,7 @@ import com.jobbootcamp.interaction.domain.dto.ThreadView;
 import com.jobbootcamp.interaction.domain.dto.TraceAuthorView;
 import com.jobbootcamp.interaction.infrastructure.AnswerMapper;
 import com.jobbootcamp.interaction.infrastructure.CommentMapper;
+import com.jobbootcamp.interaction.infrastructure.LikeRecordMapper;
 import com.jobbootcamp.interaction.infrastructure.ModerationActionMapper;
 import com.jobbootcamp.interaction.infrastructure.QuestionMapper;
 import org.springframework.stereotype.Service;
@@ -43,17 +44,20 @@ public class QuestionService {
     private final AnswerMapper answerMapper;
     private final CommentMapper commentMapper;
     private final ModerationActionMapper moderationMapper;
+    private final LikeRecordMapper likeMapper;
     private final InteractionAccessClient accessClient;
 
     public QuestionService(QuestionMapper questionMapper,
                            AnswerMapper answerMapper,
                            CommentMapper commentMapper,
                            ModerationActionMapper moderationMapper,
+                           LikeRecordMapper likeMapper,
                            InteractionAccessClient accessClient) {
         this.questionMapper = questionMapper;
         this.answerMapper = answerMapper;
         this.commentMapper = commentMapper;
         this.moderationMapper = moderationMapper;
+        this.likeMapper = likeMapper;
         this.accessClient = accessClient;
     }
 
@@ -464,6 +468,8 @@ public class QuestionService {
         return new AnswerView(answer.getId(), answer.getQuestionId(), answer.getBody(),
                 displayName(answer.getAuthorId(), prefix, profiles), answer.getAuthorRole(),
                 answer.getAuthorId().equals(requesterId), commentMapper.countVisible(answer.getId()),
+                answer.getLikeCount() == null ? 0 : answer.getLikeCount(),
+                likeMapper.active(requesterId, "ANSWER", answer.getId()) > 0,
                 answer.getRevision(), answer.getCreatedAt(), answer.getUpdatedAt());
     }
 
@@ -473,7 +479,10 @@ public class QuestionService {
         String prefix = "TEACHER".equals(role) ? "教师" : "学员";
         return new CommentView(comment.getId(), comment.getAnswerId(), comment.getBody(),
                 displayName(comment.getAuthorId(), prefix, profiles), role,
-                comment.getAuthorId().equals(requesterId), comment.getRevision(), comment.getCreatedAt());
+                comment.getAuthorId().equals(requesterId),
+                comment.getLikeCount() == null ? 0 : comment.getLikeCount(),
+                likeMapper.active(requesterId, "COMMENT", comment.getId()) > 0,
+                comment.getRevision(), comment.getCreatedAt());
     }
 
     private String displayName(Long userId, String prefix, Map<Long, ProfileBatchItem> profiles) {

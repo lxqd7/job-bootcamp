@@ -9,6 +9,8 @@ public record CommentView(
         String authorDisplay,
         String authorRole,
         boolean mine,
+        int likeCount,
+        boolean liked,
         long revision,
         LocalDateTime createdAt
 ) {

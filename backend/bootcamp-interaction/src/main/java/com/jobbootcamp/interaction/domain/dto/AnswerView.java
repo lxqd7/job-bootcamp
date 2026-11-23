@@ -10,6 +10,8 @@ public record AnswerView(
         String authorRole,
         boolean mine,
         int commentCount,
+        int likeCount,
+        boolean liked,
         long revision,
         LocalDateTime createdAt,
         LocalDateTime updatedAt

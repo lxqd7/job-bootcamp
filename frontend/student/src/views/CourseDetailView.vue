@@ -130,6 +130,10 @@ async function claimFree(): Promise<void> {
           <span class="muted">先确认报价，再创建 30 分钟待支付订单；当前阶段不接优惠券。</span>
         </div>
         <p v-else class="muted">课程当前未上架，暂不能购买。</p>
+        <div class="community-links">
+          <RouterLink :to="`/courses/${course.id}/questions`">课程问答</RouterLink>
+          <RouterLink :to="`/courses/${course.id}/notes`">公开笔记</RouterLink>
+        </div>
       </section>
     </template>
   </AppShell>
@@ -265,5 +269,12 @@ h1 {
 .claim-notice {
   margin-bottom: 12px !important;
   color: var(--pine) !important;
+}
+
+.community-links {
+  display: flex;
+  gap: 18px;
+  margin-top: 14px;
+  font-size: 13px;
 }
 </style>

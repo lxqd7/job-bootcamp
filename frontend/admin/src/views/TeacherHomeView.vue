@@ -24,6 +24,8 @@ const me = currentMe
       </p>
       <RouterLink class="btn" to="/teacher/submissions">查看学生作答</RouterLink>
       <RouterLink class="btn" to="/teacher/benefits">维护福利题</RouterLink>
+      <RouterLink class="btn" to="/teacher/questions">负责课程答疑</RouterLink>
+      <RouterLink class="btn" to="/teacher/notes">公开笔记</RouterLink>
     </section>
   </AppShell>
 </template>

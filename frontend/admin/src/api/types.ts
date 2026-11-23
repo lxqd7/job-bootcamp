@@ -442,3 +442,105 @@ export interface TeacherBenefitView {
   updatedAt: string
   routes: BoundRouteView[]
 }
+
+export interface TeacherQuestionSummary {
+  id: string
+  courseId: string
+  lessonId: string | null
+  title: string
+  authorDisplay: string
+  authorRole: string
+  anonymous: boolean
+  mine: boolean
+  answerCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TeacherQuestionDetail {
+  id: string
+  courseId: string
+  lessonId: string | null
+  title: string
+  body: string
+  authorId: string | null
+  authorDisplay: string
+  authorRole: string
+  anonymous: boolean
+  mine: boolean
+  state: string
+  revision: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TeacherAnswerDetail {
+  id: string
+  questionId: string
+  body: string
+  authorDisplay: string
+  authorRole: string
+  mine: boolean
+  commentCount: number
+  likeCount: number
+  liked: boolean
+  revision: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TeacherCommentDetail {
+  id: string
+  answerId: string
+  body: string
+  authorDisplay: string
+  authorRole: string
+  mine: boolean
+  likeCount: number
+  liked: boolean
+  revision: number
+  createdAt: string
+}
+
+export interface TeacherQuestionThread {
+  question: TeacherQuestionDetail
+  answers: TeacherAnswerDetail[]
+  answersTotal: number
+  page: number
+  pageSize: number
+}
+
+export interface TeacherNoteSummary {
+  id: string
+  courseId: string
+  lessonId: string | null
+  positionMs: number | null
+  type: string
+  visibility: string
+  state: string
+  excerpt: string
+  authorDisplay: string
+  revision: number
+  createdAt: string
+  updatedAt: string
+  mine: boolean
+}
+
+export interface TeacherNoteDetail {
+  id: string
+  courseId: string
+  lessonId: string | null
+  positionMs: number | null
+  type: string
+  visibility: string
+  state: string
+  body: string
+  authorId: string
+  authorDisplay: string
+  sourceNoteId: string | null
+  sourceAuthorSnapshot: Record<string, unknown> | null
+  revision: number
+  createdAt: string
+  updatedAt: string
+  mine: boolean
+}

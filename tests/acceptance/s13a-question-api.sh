@@ -279,8 +279,8 @@ STATUS=$(curl -s -o "$TMP_DIR/trace.json" -w '%{http_code}' -H "Authorization: B
 expect_status 200 "$STATUS" "admin traces anonymous author" "$TMP_DIR/trace.json"
 expect_value "$S1_ID" "$(field data.authorId < "$TMP_DIR/trace.json")" "trace returns real author"
 expect_value "S13AStudent1" "$(field data.nickname < "$TMP_DIR/trace.json")" "trace returns nickname"
-expect_value "1" "$(db "SELECT COUNT(*) FROM bc_interaction.moderation_action WHERE action='TRACE_AUTHOR' AND target_id=$QA AND admin_id=$(field data.user.id < "$TMP_DIR/admin.json")")" "trace audit recorded"
-expect_value "2" "$(db "SELECT COUNT(*) FROM bc_interaction.moderation_action WHERE action='HIDE' AND target_id IN ($Q2,$Q2_ANSWER)")" "hide audit recorded"
+expect_value "1" "$(db "SELECT COUNT(*) FROM bc_interaction.moderation_action WHERE action='TRACE_AUTHOR' AND target_type='QUESTION' AND target_id=$QA AND admin_id=$(field data.user.id < "$TMP_DIR/admin.json")")" "trace audit recorded"
+expect_value "2" "$(db "SELECT COUNT(*) FROM bc_interaction.moderation_action WHERE action='HIDE' AND ((target_type='QUESTION' AND target_id=$Q2) OR (target_type='ANSWER' AND target_id=$Q2_ANSWER))")" "hide audit recorded"
 
 echo "== Owner deletes question: thread tombstone and children retained =="
 STATUS=$(ask "$S1_TOKEN" "Delete question" "Delete body" false "$TMP_DIR/q3.json")

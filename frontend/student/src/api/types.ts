@@ -552,3 +552,110 @@ export interface StudentBenefit {
   currentVersionSubmitted: boolean
   openAttemptId: string | null
 }
+
+export interface QuestionSummary {
+  id: string
+  courseId: string
+  lessonId: string | null
+  title: string
+  authorDisplay: string
+  authorRole: string
+  anonymous: boolean
+  mine: boolean
+  answerCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface QuestionDetail {
+  id: string
+  courseId: string
+  lessonId: string | null
+  title: string
+  body: string
+  authorId: string | null
+  authorDisplay: string
+  authorRole: string
+  anonymous: boolean
+  mine: boolean
+  state: string
+  revision: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AnswerDetail {
+  id: string
+  questionId: string
+  body: string
+  authorDisplay: string
+  authorRole: string
+  mine: boolean
+  commentCount: number
+  likeCount: number
+  liked: boolean
+  revision: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CommentDetail {
+  id: string
+  answerId: string
+  body: string
+  authorDisplay: string
+  authorRole: string
+  mine: boolean
+  likeCount: number
+  liked: boolean
+  revision: number
+  createdAt: string
+}
+
+export interface QuestionThread {
+  question: QuestionDetail
+  answers: AnswerDetail[]
+  answersTotal: number
+  page: number
+  pageSize: number
+}
+
+export interface LikeResult {
+  liked: boolean
+  likeCount: number
+}
+
+export interface NoteSummary {
+  id: string
+  courseId: string
+  lessonId: string | null
+  positionMs: number | null
+  type: string
+  visibility: string
+  state: string
+  excerpt: string
+  authorDisplay: string
+  revision: number
+  createdAt: string
+  updatedAt: string
+  mine: boolean
+}
+
+export interface NoteDetail {
+  id: string
+  courseId: string
+  lessonId: string | null
+  positionMs: number | null
+  type: string
+  visibility: string
+  state: string
+  body: string
+  authorId: string
+  authorDisplay: string
+  sourceNoteId: string | null
+  sourceAuthorSnapshot: Record<string, unknown> | null
+  revision: number
+  createdAt: string
+  updatedAt: string
+  mine: boolean
+}
