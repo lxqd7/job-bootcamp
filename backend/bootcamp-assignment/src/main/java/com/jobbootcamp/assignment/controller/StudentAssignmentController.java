@@ -2,6 +2,7 @@ package com.jobbootcamp.assignment.controller;
 
 import com.jobbootcamp.assignment.application.StudentAssignmentService;
 import com.jobbootcamp.assignment.config.AssignmentAuthInterceptor;
+import com.jobbootcamp.assignment.domain.dto.AssignmentProgressView;
 import com.jobbootcamp.assignment.domain.dto.AttemptView;
 import com.jobbootcamp.assignment.domain.dto.DraftRequest;
 import com.jobbootcamp.assignment.domain.dto.PageResponse;
@@ -52,6 +53,15 @@ public class StudentAssignmentController {
             @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
         requireStudent(role);
         return ApiResponse.ok(service.getAssignment(userId, id));
+    }
+
+    @GetMapping("/assignments/{id}/progress")
+    public ApiResponse<AssignmentProgressView> progress(
+            @PathVariable("id") Long id,
+            @RequestAttribute(AssignmentAuthInterceptor.USER_ID_ATTRIBUTE) Long userId,
+            @RequestAttribute(AssignmentAuthInterceptor.ROLE_ATTRIBUTE) String role) {
+        requireStudent(role);
+        return ApiResponse.ok(service.progress(userId, id));
     }
 
     @PostMapping("/assignments/{id}/attempts")

@@ -2,12 +2,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppShell from '../components/AppShell.vue'
-import { authorizeLesson, loadLearningCourse, reportProgress } from '../api/client'
-import type { LearningCourse, LearningLesson, PlayAuthorization } from '../api/types'
+import { authorizeLesson, loadCourseAssignments, loadLearningCourse, reportProgress } from '../api/client'
+import type { LearningCourse, LearningLesson, PlayAuthorization, StudentAssignment } from '../api/types'
 import { describeAuthError } from '../auth/session'
 
 const route = useRoute()
 const course = ref<LearningCourse | null>(null)
+const assignments = ref<StudentAssignment[]>([])
 const selectedLesson = ref<LearningLesson | null>(null)
 const authorization = ref<PlayAuthorization | null>(null)
 const videoSrc = ref('')
@@ -31,6 +32,28 @@ const progressPercent = computed(() => {
 })
 
 const lessons = computed(() => course.value?.chapters.flatMap(chapter => chapter.lessons) ?? [])
+
+const chapterTitles = computed(() => {
+  const map = new Map<string, string>()
+  for (const chapter of course.value?.chapters ?? []) {
+    map.set(chapter.id, chapter.title)
+  }
+  return map
+})
+
+function assignmentLabel(item: StudentAssignment): string {
+  return item.kind === 'CHAPTER_CHOICE'
+    ? `章自测 · ${chapterTitles.value.get(item.chapterId ?? '') ?? '章节'}`
+    : '课程代码补全'
+}
+
+function assignmentState(item: StudentAssignment): string {
+  if (item.status === 'DRAFT') return '暂未发布'
+  if (item.status === 'OFFLINE') return '已下架'
+  if (item.currentVersionSubmitted) return '当前版本已作答'
+  if (item.openAttemptId) return '作答中'
+  return '未作答'
+}
 
 const authExpiryText = computed(() => {
   if (!authorization.value) return ''
@@ -67,6 +90,12 @@ async function load(): Promise<void> {
   videoSrc.value = ''
   try {
     course.value = await loadLearningCourse(courseId.value)
+    try {
+      assignments.value = await loadCourseAssignments(courseId.value)
+    } catch {
+      // 作业服务暂不可用不影响视频学习。
+      assignments.value = []
+    }
     const next = chooseLesson(selectedLesson.value)
     selectedLesson.value = next
     if (next?.mediaId) {
@@ -268,6 +297,19 @@ onBeforeUnmount(clearTimers)
             </button>
           </section>
           <p v-if="course.chapters.length === 0" class="empty">课程暂时没有目录。</p>
+          <section v-if="assignments.length > 0" class="assignment-entry">
+            <h2>自测作业</h2>
+            <RouterLink
+              v-for="item in assignments"
+              :key="item.id"
+              class="assignment-link"
+              :to="`/assignments/${item.id}`"
+            >
+              <span>{{ assignmentLabel(item) }}</span>
+              <span class="assignment-state">{{ assignmentState(item) }}</span>
+            </RouterLink>
+            <p class="assignment-note">作业与视频进度分别记录，作答不影响学习或退款。</p>
+          </section>
         </aside>
 
         <main class="player-area">
@@ -449,6 +491,47 @@ h1 {
   flex: 0 0 auto;
   color: var(--muted);
   font-size: 11px;
+}
+
+.assignment-entry {
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.assignment-entry h2 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.assignment-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.assignment-link:hover {
+  color: var(--pine);
+}
+
+.assignment-state {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.assignment-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .player-area {

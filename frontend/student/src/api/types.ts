@@ -421,3 +421,121 @@ export interface RefundDetail {
   acceptedAt: string
   channelRefundNo: string | null
 }
+
+export type AssignmentKind = 'CHAPTER_CHOICE' | 'COURSE_CODE'
+
+export interface ChoiceOption {
+  id: string
+  text: string
+}
+
+export interface ChoiceQuestion {
+  id: string
+  type: 'SINGLE' | 'MULTIPLE'
+  body: string
+  score: number
+  options: ChoiceOption[]
+}
+
+export interface ChoiceBody {
+  questions: ChoiceQuestion[]
+}
+
+export interface CodeSegment {
+  text?: string
+  slotId?: string
+  initialCode?: string
+}
+
+export interface CodeBody {
+  scenario: string
+  requirements: string
+  segments: CodeSegment[]
+}
+
+export type AssignmentBody = ChoiceBody | CodeBody
+
+export interface StudentAssignment {
+  id: string
+  kind: AssignmentKind
+  courseId: string
+  chapterId: string | null
+  status: string
+  currentVersionId: string | null
+  currentVersionNo: number | null
+  publicBody: AssignmentBody | null
+  currentVersionSubmitted: boolean
+  openAttemptId: string | null
+}
+
+export interface AttemptView {
+  id: string
+  assignmentId: string
+  versionId: string
+  status: string
+  publicBody: AssignmentBody
+  draft: Record<string, unknown> | null
+  draftRevision: number
+  startedAt: string
+}
+
+export interface SubmissionSummary {
+  id: string
+  versionNo: number | null
+  score: number | null
+  maxScore: number | null
+  reviewState: string
+  submittedAt: string
+}
+
+export interface AssignmentProgress {
+  assignmentId: string
+  status: string
+  currentVersionId: string | null
+  currentVersionNo: number | null
+  currentVersionSubmitted: boolean
+  openAttemptId: string | null
+  openAttemptRevision: number | null
+  recent: SubmissionSummary | null
+  highest: SubmissionSummary | null
+}
+
+export interface SubmissionDetail {
+  id: string
+  assignmentId: string
+  versionId: string
+  versionNo: number
+  publicBody: AssignmentBody
+  answers: Record<string, unknown>
+  score: number | null
+  maxScore: number | null
+  reviewState: string
+  submittedAt: string
+  referenceBySlot: Record<string, string> | null
+  kind: AssignmentKind
+  correctAnswers: Record<string, string[]> | null
+  analysis: Record<string, string> | null
+}
+
+export interface AiIssue {
+  slotId: string
+  evidence: string
+  reason: string
+  suggestion: string
+}
+
+export interface AiFeedback {
+  verdict: 'SATISFIED' | 'PARTIAL' | 'NEEDS_CHANGE'
+  summary: string
+  issues: AiIssue[]
+  suggestions: string[]
+  limitations: string[]
+  isMock: boolean
+}
+
+export interface ReviewView {
+  taskStatus: string
+  feedback: AiFeedback | null
+  safeErrorCode: string | null
+  isMock: boolean | null
+}

@@ -101,6 +101,13 @@ public class TeacherAssignmentService {
         return assignments(teacherId);
     }
 
+    /**
+     * 只读作答与 AI 反馈每次按当前分配验权，教师调离后旧页面不能继续读取。
+     */
+    public boolean hasCourseScope(Long teacherId, Long courseId) {
+        return teacherCourseMapper.countActiveCourse(teacherId, courseId) > 0;
+    }
+
     public List<TeacherCourseItem> courses(Long teacherId) {
         List<TeacherCourseItem> items = new ArrayList<>();
         for (Long courseId : teacherCourseMapper.selectActiveCourseIds(teacherId)) {

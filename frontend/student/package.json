@@ -10,7 +10,9 @@
     "preview": "vite preview --port 15173 --strictPort"
   },
   "dependencies": {
+    "@codemirror/lang-java": "^6.0.2",
     "axios": "1.21.1",
+    "codemirror": "^6.0.2",
     "element-plus": "2.14.8",
     "pinia": "3.0.4",
     "vue": "3.5.34",

@@ -8,19 +8,21 @@ const me = currentMe
 <template>
   <AppShell>
     <section class="hero">
-      <p class="stage">阶段 S02 · 教师工作区</p>
+      <p class="stage">教师工作区</p>
       <h1>教师工作区</h1>
       <p class="lead">
-        当前账号是教师{{ me ? `（${me.nickname}）` : '' }}。课程、答疑、学生作答只读记录和福利题会随 S03/S12/S13 接入；服务端会按负责课程与路线校验范围。
+        当前账号是教师{{ me ? `（${me.nickname}）` : '' }}。学生作答记录按当前负责课程只读展示；
+        答疑、福利题和优秀笔记评选会随后续阶段接入，服务端会按负责课程与路线校验范围。
       </p>
     </section>
 
     <section class="note">
-      <h2>这一版没有教师业务页面</h2>
+      <h2>学生作答只读记录</h2>
       <p>
-        S02 只交付身份、角色菜单和账号管理。教师范围分配和只读作答属于后续阶段，不用静态页面冒充已完成。
+        查看当前负责课程学生的章节自测成绩、代码提交和 AI 反馈。页面不提供修改答案、人工改分、
+        重试点评或跨课程查看的入口；教师调离课程后旧的读取请求会被服务端拒绝。
       </p>
-      <RouterLink class="btn" to="/me">查看个人资料</RouterLink>
+      <RouterLink class="btn" to="/teacher/submissions">查看学生作答</RouterLink>
     </section>
   </AppShell>
 </template>

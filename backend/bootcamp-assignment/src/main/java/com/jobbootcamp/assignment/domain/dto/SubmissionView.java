@@ -13,6 +13,9 @@ public record SubmissionView(
         Integer maxScore,
         String reviewState,
         LocalDateTime submittedAt,
-        Object referenceBySlot
+        Object referenceBySlot,
+        String kind,
+        Object correctAnswers,
+        Object analysis
 ) {
 }

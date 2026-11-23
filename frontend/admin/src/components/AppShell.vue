@@ -27,6 +27,7 @@ const links = computed(() => {
   return [
     { to: '/', label: '首页' },
     { to: '/teacher', label: '教师工作区' },
+    { to: '/teacher/submissions', label: '学生作答' },
     { to: '/me', label: '个人资料' }
   ]
 })

@@ -294,3 +294,111 @@ export interface AssignmentView {
   revision: number
   updatedAt: string
 }
+
+export interface TeacherCourseItem {
+  id: string
+  title: string
+  status: string
+  categoryId: string
+}
+
+export interface TeacherAssignmentItem {
+  id: string
+  kind: string
+  chapterId: string | null
+  status: string
+  currentVersionNo: number | null
+}
+
+export interface TeacherSubmissionSummary {
+  id: string
+  assignmentId: string
+  kind: string
+  chapterId: string | null
+  studentId: string
+  studentNickname: string | null
+  versionNo: number | null
+  score: number | null
+  maxScore: number | null
+  reviewState: string
+  submittedAt: string
+}
+
+export interface ChoiceOption {
+  id: string
+  text: string
+}
+
+export interface ChoiceQuestion {
+  id: string
+  type: 'SINGLE' | 'MULTIPLE'
+  body: string
+  score: number
+  options: ChoiceOption[]
+}
+
+export interface ChoiceBody {
+  questions: ChoiceQuestion[]
+}
+
+export interface CodeSegment {
+  text?: string
+  slotId?: string
+  initialCode?: string
+}
+
+export interface CodeBody {
+  scenario: string
+  requirements: string
+  segments: CodeSegment[]
+}
+
+export interface TeacherSubmissionDetail {
+  id: string
+  assignmentId: string
+  versionId: string
+  versionNo: number
+  publicBody: ChoiceBody | CodeBody
+  answers: Record<string, unknown>
+  score: number | null
+  maxScore: number | null
+  reviewState: string
+  submittedAt: string
+  referenceBySlot: Record<string, string> | null
+  kind: string
+  correctAnswers: Record<string, string[]> | null
+  analysis: Record<string, string> | null
+}
+
+export interface AiIssue {
+  slotId: string
+  evidence: string
+  reason: string
+  suggestion: string
+}
+
+export interface AiFeedback {
+  verdict: string
+  summary: string
+  issues: AiIssue[]
+  suggestions: string[]
+  limitations: string[]
+  isMock: boolean
+}
+
+export interface ReviewView {
+  taskStatus: string
+  feedback: AiFeedback | null
+  safeErrorCode: string | null
+  isMock: boolean | null
+}
+
+export interface TeacherSubmissionView {
+  submissionId: string
+  assignmentId: string
+  kind: string
+  studentId: string
+  studentNickname: string | null
+  submission: TeacherSubmissionDetail
+  review: ReviewView
+}

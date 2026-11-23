@@ -26,7 +26,13 @@ import type {
   SignStatus,
   TradeQuote,
   ActivityView,
-  UserCouponView
+  UserCouponView,
+  AssignmentProgress,
+  AttemptView,
+  ReviewView,
+  StudentAssignment,
+  SubmissionDetail,
+  SubmissionSummary
 } from './types'
 
 export interface CategoryResult {
@@ -398,4 +404,118 @@ export function describeError(error: unknown): string {
     return '无法连接服务，请确认本地服务已启动。'
   }
   return error instanceof Error ? error.message : '发生未知错误。'
+}
+export async function loadCourseAssignments(courseId: string): Promise<StudentAssignment[]> {
+  const { data } = await http.get<ApiEnvelope<StudentAssignment[]>>(
+    `/api/v1/courses/${courseId}/assignments`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '课程作业加载失败')
+  }
+  return data.data
+}
+
+export async function loadAssignment(id: string): Promise<StudentAssignment> {
+  const { data } = await http.get<ApiEnvelope<StudentAssignment>>(`/api/v1/assignments/${id}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '作业加载失败')
+  }
+  return data.data
+}
+
+export async function loadAssignmentProgress(id: string): Promise<AssignmentProgress> {
+  const { data } = await http.get<ApiEnvelope<AssignmentProgress>>(
+    `/api/v1/assignments/${id}/progress`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '作业成绩加载失败')
+  }
+  return data.data
+}
+
+export async function startAttempt(assignmentId: string): Promise<AttemptView> {
+  const { data } = await http.post<ApiEnvelope<AttemptView>>(
+    `/api/v1/assignments/${assignmentId}/attempts`
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '开始作答失败')
+  }
+  return data.data
+}
+
+export async function loadAttempt(attemptId: string): Promise<AttemptView> {
+  const { data } = await http.get<ApiEnvelope<AttemptView>>(`/api/v1/attempts/${attemptId}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '作答进度加载失败')
+  }
+  return data.data
+}
+
+export async function saveDraft(
+  attemptId: string,
+  answers: Record<string, unknown>,
+  draftRevision: number
+): Promise<AttemptView> {
+  const { data } = await http.put<ApiEnvelope<AttemptView>>(
+    `/api/v1/attempts/${attemptId}/draft`,
+    { answers, draftRevision }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '草稿保存失败')
+  }
+  return data.data
+}
+
+export async function submitAttempt(
+  attemptId: string,
+  answers: Record<string, unknown>,
+  idempotencyKey: string
+): Promise<SubmissionDetail> {
+  const { data } = await http.post<ApiEnvelope<SubmissionDetail>>(
+    `/api/v1/attempts/${attemptId}/submissions`,
+    { answers },
+    { headers: { 'Idempotency-Key': idempotencyKey } }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '提交失败')
+  }
+  return data.data
+}
+
+export async function loadSubmissions(
+  assignmentId: string,
+  page = 1,
+  pageSize = 50
+): Promise<PageResponse<SubmissionSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<SubmissionSummary>>>(
+    `/api/v1/assignments/${assignmentId}/submissions`,
+    { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '提交历史加载失败')
+  }
+  return data.data
+}
+
+export async function loadSubmission(id: string): Promise<SubmissionDetail> {
+  const { data } = await http.get<ApiEnvelope<SubmissionDetail>>(`/api/v1/submissions/${id}`)
+  if (data.code !== 'OK') {
+    throw new Error(data.message || '提交详情加载失败')
+  }
+  return data.data
+}
+
+export async function loadReview(id: string): Promise<ReviewView> {
+  // 轮询时避免浏览器把上一次“排队中”的响应当作可缓存结果。
+  const { data } = await http.get<ApiEnvelope<ReviewView>>(`/api/v1/submissions/${id}/review`, {
+    params: { _t: Date.now() }
+  })
+  if (data.code !== 'OK') {
+    throw new Error(data.message || 'AI 点评状态加载失败')
+  }
+  return data.data
+}
+
+export function httpStatus(error: unknown): number | null {
+  return (error as { response?: { status?: number } }).response?.status ?? null
 }

@@ -23,6 +23,9 @@ app:
     secret: ${INTERNAL_TOKEN_KEY:dev-only-internal-secret}
   user:
     session-check-url: ${USER_INTERNAL_URL:http://127.0.0.1:18081/int/v1/sessions/check}
+    profile-batch-url: ${USER_PROFILE_BATCH_URL:http://127.0.0.1:18081/int/v1/profiles/batch}
+  course:
+    scope-url: ${COURSE_TEACHER_SCOPE_URL:http://127.0.0.1:18082/int/v1/teachers/scope}
   learning:
     access-url: ${LEARNING_ACCESS_URL:http://127.0.0.1:18083/int/v1/access/check}
   ai:

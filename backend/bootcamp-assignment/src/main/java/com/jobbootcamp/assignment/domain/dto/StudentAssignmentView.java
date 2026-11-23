@@ -8,6 +8,8 @@ public record StudentAssignmentView(
         String status,
         Long currentVersionId,
         Integer currentVersionNo,
-        Object publicBody
+        Object publicBody,
+        boolean currentVersionSubmitted,
+        Long openAttemptId
 ) {
 }

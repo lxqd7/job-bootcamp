@@ -19,4 +19,22 @@ public interface SubmissionMapper extends BaseMapper<Submission> {
     Submission selectByRequest(@Param("userId") Long userId,
                                @Param("attemptId") Long attemptId,
                                @Param("requestKey") String requestKey);
+
+    @Select("""
+            SELECT * FROM submission
+            WHERE user_id = #{userId} AND assignment_id = #{assignmentId} AND version_id = #{versionId}
+            ORDER BY submitted_at DESC, id DESC LIMIT 1
+            """)
+    Submission selectRecentForVersion(@Param("userId") Long userId,
+                                      @Param("assignmentId") Long assignmentId,
+                                      @Param("versionId") Long versionId);
+
+    @Select("""
+            SELECT * FROM submission
+            WHERE user_id = #{userId} AND assignment_id = #{assignmentId} AND version_id = #{versionId}
+            ORDER BY score DESC, submitted_at DESC, id DESC LIMIT 1
+            """)
+    Submission selectHighestForVersion(@Param("userId") Long userId,
+                                       @Param("assignmentId") Long assignmentId,
+                                       @Param("versionId") Long versionId);
 }

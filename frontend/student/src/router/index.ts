@@ -17,6 +17,8 @@ import MyRoutesView from '../views/MyRoutesView.vue'
 import ActivitiesView from '../views/ActivitiesView.vue'
 import MyCouponsView from '../views/MyCouponsView.vue'
 import LearningView from '../views/LearningView.vue'
+import AssignmentView from '../views/AssignmentView.vue'
+import SubmissionDetailView from '../views/SubmissionDetailView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import OrderListView from '../views/OrderListView.vue'
 import OrderDetailView from '../views/OrderDetailView.vue'
@@ -43,6 +45,8 @@ const router = createRouter({
     { path: '/activities', name: 'activities', component: ActivitiesView, meta: { roles: ['STUDENT'] } },
     { path: '/me/coupons', name: 'my-coupons', component: MyCouponsView, meta: { roles: ['STUDENT'] } },
     { path: '/learning/courses/:id', name: 'learning', component: LearningView, meta: { roles: ['STUDENT'] } },
+    { path: '/assignments/:id', name: 'assignment', component: AssignmentView, meta: { roles: ['STUDENT'] } },
+    { path: '/submissions/:id', name: 'submission-detail', component: SubmissionDetailView, meta: { roles: ['STUDENT'] } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { roles: ['STUDENT'] } },
     { path: '/orders', name: 'orders', component: OrderListView, meta: { roles: ['STUDENT'] } },
     { path: '/orders/:id/pay', name: 'order-pay', component: PaymentView, meta: { roles: ['STUDENT'] } },

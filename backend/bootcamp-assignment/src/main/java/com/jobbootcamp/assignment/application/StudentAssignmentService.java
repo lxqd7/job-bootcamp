@@ -5,21 +5,19 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jobbootcamp.assignment.domain.Attempt;
 import com.jobbootcamp.assignment.domain.AiTask;
 import com.jobbootcamp.assignment.domain.Assignment;
 import com.jobbootcamp.assignment.domain.AssignmentVersion;
 import com.jobbootcamp.assignment.domain.AiUserSlot;
 import com.jobbootcamp.assignment.domain.Submission;
+import com.jobbootcamp.assignment.domain.dto.AssignmentProgressView;
 import com.jobbootcamp.assignment.domain.dto.AttemptView;
 import com.jobbootcamp.assignment.domain.dto.PageResponse;
 import com.jobbootcamp.assignment.domain.dto.ReviewView;
 import com.jobbootcamp.assignment.domain.dto.StudentAssignmentView;
 import com.jobbootcamp.assignment.domain.dto.SubmissionSummary;
 import com.jobbootcamp.assignment.domain.dto.SubmissionView;
-import com.jobbootcamp.assignment.infrastructure.AiFeedbackMapper;
 import com.jobbootcamp.assignment.infrastructure.AiTaskMapper;
 import com.jobbootcamp.assignment.infrastructure.AiUserSlotMapper;
 import com.jobbootcamp.assignment.infrastructure.AssignmentMapper;
@@ -37,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -59,7 +56,7 @@ public class StudentAssignmentService {
     private final SubmissionMapper submissionMapper;
     private final AiTaskMapper taskMapper;
     private final AiUserSlotMapper slotMapper;
-    private final AiFeedbackMapper feedbackMapper;
+    private final SubmissionAssembler submissionAssembler;
     private final LearningAccessClient accessClient;
     private final TransactionTemplate transactionTemplate;
 
@@ -69,7 +66,7 @@ public class StudentAssignmentService {
                                     SubmissionMapper submissionMapper,
                                     AiTaskMapper taskMapper,
                                     AiUserSlotMapper slotMapper,
-                                    AiFeedbackMapper feedbackMapper,
+                                    SubmissionAssembler submissionAssembler,
                                     LearningAccessClient accessClient,
                                     PlatformTransactionManager transactionManager) {
         this.assignmentMapper = assignmentMapper;
@@ -78,7 +75,7 @@ public class StudentAssignmentService {
         this.submissionMapper = submissionMapper;
         this.taskMapper = taskMapper;
         this.slotMapper = slotMapper;
-        this.feedbackMapper = feedbackMapper;
+        this.submissionAssembler = submissionAssembler;
         this.accessClient = accessClient;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -89,13 +86,33 @@ public class StudentAssignmentService {
                         .eq(Assignment::getCourseId, courseId)
                         .orderByAsc(Assignment::getKind)
                         .orderByAsc(Assignment::getChapterId))
-                .stream().map(assignment -> studentView(assignment)).toList();
+                .stream().map(assignment -> studentView(userId, assignment)).toList();
     }
 
     public StudentAssignmentView getAssignment(Long userId, Long assignmentId) {
         Assignment assignment = requireAssignment(assignmentId);
         requireAccess(userId, assignment.getCourseId());
-        return studentView(assignment);
+        return studentView(userId, assignment);
+    }
+
+    /**
+     * 当前版本最近/最高成绩只统计当前版本；提交历史仍保留所有版本。
+     */
+    public AssignmentProgressView progress(Long userId, Long assignmentId) {
+        Assignment assignment = requireAssignment(assignmentId);
+        requireAccess(userId, assignment.getCourseId());
+        if (assignment.getCurrentVersionId() == null) {
+            return new AssignmentProgressView(assignmentId, assignment.getStatus(),
+                    null, null, false, null, null, null, null);
+        }
+        AssignmentVersion version = requireVersion(assignment.getCurrentVersionId());
+        Submission recent = submissionMapper.selectRecentForVersion(userId, assignmentId, version.getId());
+        Submission highest = submissionMapper.selectHighestForVersion(userId, assignmentId, version.getId());
+        Attempt open = attemptMapper.selectLatestOpen(userId, assignmentId, version.getId());
+        return new AssignmentProgressView(assignmentId, assignment.getStatus(), version.getId(),
+                version.getVersionNo(), recent != null,
+                open == null ? null : open.getId(), open == null ? null : open.getDraftRevision(),
+                recent == null ? null : summaryOf(recent), highest == null ? null : summaryOf(highest));
     }
 
     public AttemptView startAttempt(Long userId, Long assignmentId) {
@@ -107,6 +124,11 @@ public class StudentAssignmentService {
         AssignmentVersion version = versionMapper.selectById(assignment.getCurrentVersionId());
         if (version == null) {
             throw new BusinessException(ErrorCode.DATA_INTEGRITY, "作业当前版本不存在");
+        }
+        // 同一版本已有未提交作答时继续使用，跨设备打开页面不会覆盖原草稿。
+        Attempt existing = attemptMapper.selectLatestOpen(userId, assignmentId, version.getId());
+        if (existing != null) {
+            return attemptView(existing, version, readObjectOrNull(existing.getDraftJson()));
         }
         LocalDateTime now = now();
         Attempt attempt = new Attempt();
@@ -164,7 +186,7 @@ public class StudentAssignmentService {
             if (!existing.getRequestHash().equals(requestHash)) {
                 throw new BusinessException(ErrorCode.CONFLICT, "该幂等键已用于不同的提交内容");
             }
-            return submissionView(existing);
+            return submissionAssembler.view(existing);
         }
         if (!"OPEN".equals(attempt.getStatus())) {
             throw new BusinessException(ErrorCode.CONFLICT, "该 attempt 已提交，请重新开始作答");
@@ -182,7 +204,7 @@ public class StudentAssignmentService {
         } catch (DuplicateKeyException duplicate) {
             Submission raced = submissionMapper.selectByRequest(userId, attemptId, requestKey);
             if (raced != null && raced.getRequestHash().equals(requestHash)) {
-                return submissionView(raced);
+                return submissionAssembler.view(raced);
             }
             throw new BusinessException(ErrorCode.CONFLICT, "该 attempt 已提交");
         }
@@ -212,25 +234,14 @@ public class StudentAssignmentService {
         Submission submission = requireOwnedSubmission(userId, submissionId);
         Assignment assignment = requireAssignment(submission.getAssignmentId());
         requireAccess(userId, assignment.getCourseId());
-        return submissionView(submission);
+        return submissionAssembler.view(submission);
     }
 
     public ReviewView getReview(Long userId, Long submissionId) {
         Submission submission = requireOwnedSubmission(userId, submissionId);
         Assignment assignment = requireAssignment(submission.getAssignmentId());
         requireAccess(userId, assignment.getCourseId());
-        AiTask task = taskMapper.selectBySubmission(submissionId);
-        if (task == null) {
-            return new ReviewView("NOT_APPLICABLE", null, null, null);
-        }
-        Object feedback = null;
-        if (taskMapper.selectById(task.getId()) != null) {
-            var value = feedbackMapper.selectById(task.getId());
-            if (value != null) {
-                feedback = feedbackObject(value);
-            }
-        }
-        return new ReviewView(task.getState(), feedback, task.getSafeErrorCode(), Boolean.TRUE);
+        return submissionAssembler.review(submissionId);
     }
 
     private SubmissionView submitInTransaction(Attempt attempt, Assignment assignment,
@@ -244,7 +255,7 @@ public class StudentAssignmentService {
         Submission existing = submissionMapper.selectByAttempt(locked.getId());
         if (existing != null) {
             if (existing.getRequestHash().equals(requestHash)) {
-                return submissionView(existing);
+                return submissionAssembler.view(existing);
             }
             throw new BusinessException(ErrorCode.CONFLICT, "该 attempt 已提交");
         }
@@ -290,7 +301,14 @@ public class StudentAssignmentService {
         locked.setStatus("SUBMITTED");
         locked.setUpdatedAt(now);
         attemptMapper.updateById(locked);
-        return submissionView(submission);
+        return submissionAssembler.view(submission);
+    }
+
+    private SubmissionSummary summaryOf(Submission submission) {
+        AssignmentVersion version = versionMapper.selectById(submission.getVersionId());
+        return new SubmissionSummary(submission.getId(), version == null ? null : version.getVersionNo(),
+                submission.getScore(), submission.getMaxScore(), submission.getReviewState(),
+                submission.getSubmittedAt());
     }
 
     private Grade validateCodeAnswers(AssignmentVersion version, JsonNode answers) {
@@ -305,13 +323,19 @@ public class StudentAssignmentService {
             throw new BusinessException(ErrorCode.ASSIGNMENT_INVALID, "代码答案必须是 slot 对象");
         }
         int total = 0;
+        boolean hasCode = false;
         Iterator<String> names = answers.fieldNames();
         while (names.hasNext()) {
             String slot = names.next();
             if (!slots.contains(slot) || !answers.get(slot).isTextual()) {
                 throw new BusinessException(ErrorCode.ASSIGNMENT_INVALID, "提交包含未知 slot 或非文本代码");
             }
-            total += answers.get(slot).asText().length();
+            String code = answers.get(slot).asText();
+            total += code.length();
+            hasCode = hasCode || !code.isBlank();
+        }
+        if (!hasCode) {
+            throw new BusinessException(ErrorCode.ASSIGNMENT_INVALID, "代码不能全部为空");
         }
         if (total > 30000) {
             throw new BusinessException(ErrorCode.INPUT_TOO_LARGE, "学生代码总长超限");
@@ -374,9 +398,11 @@ public class StudentAssignmentService {
         return new Grade(score, max);
     }
 
-    private StudentAssignmentView studentView(Assignment assignment) {
+    private StudentAssignmentView studentView(Long userId, Assignment assignment) {
         Integer versionNo = null;
         Object publicBody = null;
+        boolean submitted = false;
+        Long openAttemptId = null;
         if (assignment.getCurrentVersionId() != null) {
             AssignmentVersion version = versionMapper.selectById(assignment.getCurrentVersionId());
             if (version != null) {
@@ -384,41 +410,21 @@ public class StudentAssignmentService {
                 if (!"OFFLINE".equals(assignment.getStatus())) {
                     publicBody = readObject(version.getPublicBody());
                 }
+                submitted = submissionMapper.selectRecentForVersion(
+                        userId, assignment.getId(), version.getId()) != null;
+                Attempt open = attemptMapper.selectLatestOpen(userId, assignment.getId(), version.getId());
+                openAttemptId = open == null ? null : open.getId();
             }
         }
         return new StudentAssignmentView(assignment.getId(), assignment.getKind(), assignment.getCourseId(),
                 assignment.getChapterId(), assignment.getStatus(), assignment.getCurrentVersionId(),
-                versionNo, publicBody);
+                versionNo, publicBody, submitted, openAttemptId);
     }
 
     private AttemptView attemptView(Attempt attempt, AssignmentVersion version, Object draft) {
         return new AttemptView(attempt.getId(), attempt.getAssignmentId(), attempt.getVersionId(),
                 attempt.getStatus(), readObject(version.getPublicBody()), draft,
                 attempt.getDraftRevision(), attempt.getStartedAt());
-    }
-
-    private SubmissionView submissionView(Submission submission) {
-        AssignmentVersion version = requireVersion(submission.getVersionId());
-        Assignment assignment = requireAssignment(submission.getAssignmentId());
-        Object answers = readObject(submission.getAnswersJson());
-        Object referenceBody = null;
-        if ("COURSE_CODE".equals(assignment.getKind())) {
-            referenceBody = JSON.convertValue(readJson(version.getAnswerBody()).path("referenceBySlot"), Object.class);
-        }
-        return new SubmissionView(submission.getId(), submission.getAssignmentId(), submission.getVersionId(),
-                version.getVersionNo(), readObject(version.getPublicBody()), answers, submission.getScore(),
-                submission.getMaxScore(), submission.getReviewState(), submission.getSubmittedAt(), referenceBody);
-    }
-
-    private Object feedbackObject(com.jobbootcamp.assignment.domain.AiFeedback feedback) {
-        ObjectNode root = JSON.createObjectNode();
-        root.put("verdict", feedback.getVerdict());
-        root.put("summary", feedback.getSummary());
-        root.set("issues", readJson(feedback.getIssues()));
-        root.set("suggestions", readJson(feedback.getSuggestions()));
-        root.set("limitations", readJson(feedback.getLimitations()));
-        root.put("isMock", Boolean.TRUE.equals(feedback.getIsMock()));
-        return root;
     }
 
     private Object readObjectOrNull(String json) {

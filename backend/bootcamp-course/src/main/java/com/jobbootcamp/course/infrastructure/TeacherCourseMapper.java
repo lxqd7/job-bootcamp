@@ -14,6 +14,9 @@ public interface TeacherCourseMapper {
     @Select("SELECT course_id FROM teacher_course WHERE teacher_id = #{teacherId} AND active = TRUE ORDER BY course_id")
     List<Long> selectActiveCourseIds(@Param("teacherId") Long teacherId);
 
+    @Select("SELECT COUNT(*) FROM teacher_course WHERE teacher_id = #{teacherId} AND course_id = #{courseId} AND active = TRUE")
+    int countActiveCourse(@Param("teacherId") Long teacherId, @Param("courseId") Long courseId);
+
     @Delete("DELETE FROM teacher_course WHERE teacher_id = #{teacherId}")
     int deleteByTeacher(@Param("teacherId") Long teacherId);
 

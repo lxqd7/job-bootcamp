@@ -8,7 +8,11 @@ import type {
   AssignmentSummary,
   AssignmentView,
   CouponRuleView,
-  PageResponse
+  PageResponse,
+  TeacherAssignmentItem,
+  TeacherCourseItem,
+  TeacherSubmissionSummary,
+  TeacherSubmissionView
 } from './types'
 
 export async function loadHealth(): Promise<{ status: string }> {
@@ -192,4 +196,38 @@ export async function deleteAssignment(id: string, revision: number): Promise<vo
     params: { revision }
   })
   if (data.code !== 'OK') throw new Error(data.message || '作业删除失败')
+}
+
+export async function loadTeacherCourses(): Promise<TeacherCourseItem[]> {
+  const { data } = await http.get<ApiEnvelope<TeacherCourseItem[]>>('/api/v1/teacher/courses')
+  if (data.code !== 'OK') throw new Error(data.message || '负责课程加载失败')
+  return data.data
+}
+
+export async function loadTeacherAssignments(courseId: string): Promise<TeacherAssignmentItem[]> {
+  const { data } = await http.get<ApiEnvelope<TeacherAssignmentItem[]>>(
+    `/api/v1/teacher/courses/${courseId}/assignments`
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '课程作业加载失败')
+  return data.data
+}
+
+export async function loadTeacherSubmissions(
+  courseId: string,
+  assignmentId: string,
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<TeacherSubmissionSummary>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<TeacherSubmissionSummary>>>(
+    `/api/v1/teacher/courses/${courseId}/submissions`,
+    { params: { assignmentId: assignmentId ? Number(assignmentId) : undefined, page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '学生作答加载失败')
+  return data.data
+}
+
+export async function loadTeacherSubmission(id: string): Promise<TeacherSubmissionView> {
+  const { data } = await http.get<ApiEnvelope<TeacherSubmissionView>>(`/api/v1/teacher/submissions/${id}`)
+  if (data.code !== 'OK') throw new Error(data.message || '作答详情加载失败')
+  return data.data
 }
