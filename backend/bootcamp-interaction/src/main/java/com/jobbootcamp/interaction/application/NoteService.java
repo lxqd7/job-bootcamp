@@ -7,16 +7,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.contracts.internal.ProfileBatchItem;
+import com.jobbootcamp.interaction.domain.ExcellentReward;
 import com.jobbootcamp.interaction.domain.ModerationAction;
 import com.jobbootcamp.interaction.domain.Note;
 import com.jobbootcamp.interaction.domain.NoteVersion;
+import com.jobbootcamp.interaction.domain.OutboxEvent;
 import com.jobbootcamp.interaction.domain.dto.NoteRequest;
 import com.jobbootcamp.interaction.domain.dto.NoteSummary;
 import com.jobbootcamp.interaction.domain.dto.NoteView;
 import com.jobbootcamp.interaction.domain.dto.PageResponse;
+import com.jobbootcamp.interaction.infrastructure.ExcellentRewardMapper;
 import com.jobbootcamp.interaction.infrastructure.ModerationActionMapper;
 import com.jobbootcamp.interaction.infrastructure.NoteMapper;
 import com.jobbootcamp.interaction.infrastructure.NoteVersionMapper;
+import com.jobbootcamp.interaction.infrastructure.OutboxEventMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +30,7 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 笔记：原创可公开/私密；采集副本始终私人且每人每原文唯一；原文更新/删除不影响副本。
@@ -37,19 +42,26 @@ public class NoteService {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String PRIVATE = "PRIVATE";
     private static final String PUBLIC = "COURSE_PUBLIC";
+    private static final String EXCELLENT_EVENT = "interaction.note-excellent.v1";
 
     private final NoteMapper noteMapper;
     private final NoteVersionMapper versionMapper;
     private final ModerationActionMapper moderationMapper;
+    private final ExcellentRewardMapper rewardMapper;
+    private final OutboxEventMapper outboxMapper;
     private final InteractionAccessClient accessClient;
 
     public NoteService(NoteMapper noteMapper,
                        NoteVersionMapper versionMapper,
                        ModerationActionMapper moderationMapper,
+                       ExcellentRewardMapper rewardMapper,
+                       OutboxEventMapper outboxMapper,
                        InteractionAccessClient accessClient) {
         this.noteMapper = noteMapper;
         this.versionMapper = versionMapper;
         this.moderationMapper = moderationMapper;
+        this.rewardMapper = rewardMapper;
+        this.outboxMapper = outboxMapper;
         this.accessClient = accessClient;
     }
 
@@ -145,8 +157,10 @@ public class NoteService {
             throw new BusinessException(ErrorCode.CONFLICT, "笔记已删除或隐藏");
         }
         requireRevision(note.getContentRevision(), request == null ? null : request.revision());
+        boolean changed = false;
         if (request.body() != null) {
             note.setBody(text(request.body(), "笔记正文", 1, 20000));
+            changed = true;
         }
         if (request.visibility() != null) {
             String visibility = visibility(request.visibility(), note.getVisibility());
@@ -154,12 +168,19 @@ public class NoteService {
                 throw new BusinessException(ErrorCode.VALIDATION_FAILED, "采集副本不能公开");
             }
             note.setVisibility(visibility);
+            changed = true;
         }
         if (request.lessonId() != null) {
             note.setLessonId(request.lessonId());
+            changed = true;
         }
         if (request.positionMs() != null) {
             note.setPositionMs(request.positionMs());
+            changed = true;
+        }
+        if (changed) {
+            // 作者修改内容或可见性后取消优秀展示，但已发奖励与版本记录保留。
+            note.setExcellent(false);
         }
         validatePosition(new NoteRequest(note.getLessonId(), note.getPositionMs(),
                 note.getBody(), note.getVisibility(), note.getContentRevision()));
@@ -179,6 +200,7 @@ public class NoteService {
             return;
         }
         note.setState("DELETED");
+        note.setExcellent(false);
         note.setContentRevision(note.getContentRevision() + 1);
         note.setUpdatedAt(now());
         noteMapper.updateById(note);
@@ -245,6 +267,7 @@ public class NoteService {
         requireExisting(note);
         String checkedReason = text(reason, "隐藏原因", 1, 1000);
         note.setState("HIDDEN");
+        note.setExcellent(false);
         note.setContentRevision(note.getContentRevision() + 1);
         note.setUpdatedAt(now());
         noteMapper.updateById(note);
@@ -256,6 +279,103 @@ public class NoteService {
         action.setReason(checkedReason);
         action.setCreatedAt(now());
         moderationMapper.insert(action);
+    }
+
+    /**
+     * 教师评优：锁笔记行并固定当前内容版本；同一笔记只生成一条奖励事实和一次奖励事件。
+     * 作者修改取消展示后再次评优只恢复展示，不再发奖。
+     */
+    @Transactional
+    public NoteView evaluate(Long teacherId, String role, Long noteId, Long contentRevision) {
+        Note note = lockTeacherNote(teacherId, role, noteId);
+        if (!"ORIGINAL".equals(note.getType()) || !PUBLIC.equals(note.getVisibility())
+                || !"VISIBLE".equals(note.getState())) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "只有公开且未隐藏的原创笔记可以评优");
+        }
+        if (contentRevision == null || !contentRevision.equals(note.getContentRevision())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "笔记内容已变化，请刷新后重新评优");
+        }
+        ExcellentReward reward = rewardMapper.selectById(noteId);
+        if (reward != null && Boolean.TRUE.equals(reward.getRevoked())) {
+            throw new BusinessException(ErrorCode.CONFLICT, "该笔记奖励已撤回，不能重新评优");
+        }
+        if (Boolean.TRUE.equals(note.getExcellent()) && reward != null) {
+            return view(note, teacherId);
+        }
+        LocalDateTime now = now();
+        if (reward == null) {
+            reward = createReward(note, teacherId, contentRevision, now);
+            writeExcellentEvent(note, teacherId, reward, now);
+        }
+        note.setExcellent(true);
+        note.setUpdatedAt(now);
+        noteMapper.updateById(note);
+        return view(note, teacherId);
+    }
+
+    /**
+     * 普通取消只撤下优秀展示，不扣分、不删除奖励事实；重复取消幂等。
+     */
+    @Transactional
+    public NoteView cancelEvaluated(Long teacherId, String role, Long noteId) {
+        Note note = lockTeacherNote(teacherId, role, noteId);
+        if (!"ORIGINAL".equals(note.getType())) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "只有原创笔记存在优秀评选");
+        }
+        if (Boolean.TRUE.equals(note.getExcellent())) {
+            note.setExcellent(false);
+            note.setUpdatedAt(now());
+            noteMapper.updateById(note);
+        }
+        return view(note, teacherId);
+    }
+
+    private Note lockTeacherNote(Long teacherId, String role, Long noteId) {
+        if (!"TEACHER".equals(role)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "只有教师可以评优");
+        }
+        Note note = noteMapper.selectForUpdate(noteId);
+        requireExisting(note);
+        if (!accessClient.teacherAssigned(teacherId, note.getCourseId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "不在负责课程范围");
+        }
+        return note;
+    }
+
+    private ExcellentReward createReward(Note note, Long teacherId, Long contentRevision, LocalDateTime now) {
+        ExcellentReward reward = new ExcellentReward();
+        reward.setNoteId(note.getId());
+        reward.setAuthorId(note.getOwnerId());
+        reward.setTeacherId(teacherId);
+        reward.setContentRevision(contentRevision);
+        reward.setAwardedAt(now);
+        reward.setRewardEventId(UUID.randomUUID().toString());
+        reward.setRewardVersion(1L);
+        reward.setRevoked(false);
+        rewardMapper.insert(reward);
+        return reward;
+    }
+
+    private void writeExcellentEvent(Note note, Long teacherId, ExcellentReward reward, LocalDateTime now) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("noteId", String.valueOf(note.getId()));
+        payload.put("authorId", String.valueOf(note.getOwnerId()));
+        payload.put("teacherId", String.valueOf(teacherId));
+        payload.put("noteRevision", String.valueOf(reward.getContentRevision()));
+        payload.put("rewardVersion", String.valueOf(reward.getRewardVersion()));
+        payload.put("occurredAt", now.toInstant(ZoneOffset.UTC).toString());
+
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(reward.getRewardEventId());
+        event.setType(EXCELLENT_EVENT);
+        event.setAggregateId(String.valueOf(note.getId()));
+        event.setAggregateVersion(reward.getRewardVersion());
+        event.setOccurredAt(now);
+        event.setPayload(write(payload));
+        event.setStatus("NEW");
+        event.setAttempt(0);
+        event.setNextRetryAt(now);
+        outboxMapper.insert(event);
     }
 
     private void requireCourseRead(Long userId, String role, Long courseId) {
@@ -280,17 +400,20 @@ public class NoteService {
         return new NoteSummary(note.getId(), note.getCourseId(), note.getLessonId(), note.getPositionMs(),
                 note.getType(), note.getVisibility(), note.getState(), excerpt, display,
                 note.getContentRevision(), note.getCreatedAt(), note.getUpdatedAt(),
-                note.getOwnerId().equals(requesterId));
+                Boolean.TRUE.equals(note.getExcellent()), note.getOwnerId().equals(requesterId));
     }
 
     private NoteView view(Note note, Long requesterId) {
         Map<Long, ProfileBatchItem> profiles = accessClient.profiles(List.of(note.getOwnerId()));
         Object snapshot = note.getSourceAuthorSnapshot() == null ? null
                 : readObject(note.getSourceAuthorSnapshot());
+        ExcellentReward reward = rewardMapper.selectById(note.getId());
         return new NoteView(note.getId(), note.getCourseId(), note.getLessonId(), note.getPositionMs(),
                 note.getType(), note.getVisibility(), note.getState(), note.getBody(),
                 note.getOwnerId(), displayName(note, profiles), note.getSourceNoteId(), snapshot,
                 note.getContentRevision(), note.getCreatedAt(), note.getUpdatedAt(),
+                Boolean.TRUE.equals(note.getExcellent()),
+                reward == null ? null : reward.getContentRevision(),
                 note.getOwnerId().equals(requesterId));
     }
 

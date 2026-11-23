@@ -18,6 +18,8 @@ public record NoteView(
         long revision,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+        boolean excellent,
+        Long excellentRevision,
         boolean mine
 ) {
 }

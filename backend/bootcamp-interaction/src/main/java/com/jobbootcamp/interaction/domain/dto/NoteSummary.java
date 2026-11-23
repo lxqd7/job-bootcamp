@@ -15,6 +15,7 @@ public record NoteSummary(
         long revision,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+        boolean excellent,
         boolean mine
 ) {
 }

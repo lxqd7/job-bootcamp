@@ -48,6 +48,8 @@ public class PointsService {
 
     public static final String TYPE_VIDEO = "VIDEO";
     public static final String TYPE_SIGN = "SIGN";
+    public static final String TYPE_EXCELLENT = "EXCELLENT";
+    private static final int EXCELLENT_POINTS = 5;
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final String PROJECTION_EVENT = "marketing.projection-changed.v1";
 
@@ -136,6 +138,46 @@ public class PointsService {
         }
         return applyReward(account, userId, TYPE_VIDEO, businessKey, awarded,
                 businessDate, occurredAt, resultCode, nowUtc);
+    }
+
+    /**
+     * 优秀笔记奖励：业务键为 noteId，奖励事实在互动的 excellent_reward 已唯一；
+     * 这里再用 (type,businessKey) 唯一索引兜底重复事件，重评不会重复发分。
+     */
+    public PointsAwardResult awardExcellent(long userId, long noteId, Instant occurredAt) {
+        if (userId <= 0 || noteId <= 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "优秀笔记奖励参数不合法");
+        }
+        String businessKey = Long.toString(noteId);
+        PointsLedger existing = findLedger(TYPE_EXCELLENT, businessKey);
+        if (existing != null) {
+            return toResult(existing, true);
+        }
+        LocalDate businessDate = occurredAt.atZone(SHANGHAI).toLocalDate();
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        rowTemplate.executeWithoutResult(status -> accountMapper.insertIfAbsent(userId, nowUtc));
+        try {
+            return transactionTemplate.execute(status -> awardExcellentInTransaction(
+                    userId, noteId, businessKey, businessDate, occurredAt, nowUtc));
+        } catch (LedgerDuplicateException e) {
+            PointsLedger duplicate = findLedger(TYPE_EXCELLENT, businessKey);
+            if (duplicate == null) {
+                throw e;
+            }
+            return toResult(duplicate, true);
+        }
+    }
+
+    private PointsAwardResult awardExcellentInTransaction(long userId, long noteId, String businessKey,
+                                                          LocalDate businessDate, Instant occurredAt,
+                                                          LocalDateTime nowUtc) {
+        PointsAccount account = accountMapper.selectForUpdate(userId);
+        PointsLedger raced = findLedger(TYPE_EXCELLENT, businessKey);
+        if (raced != null) {
+            return toResult(raced, true);
+        }
+        return applyReward(account, userId, TYPE_EXCELLENT, businessKey, EXCELLENT_POINTS,
+                businessDate, occurredAt, null, nowUtc);
     }
 
     public SignResult signIn(long userId) {

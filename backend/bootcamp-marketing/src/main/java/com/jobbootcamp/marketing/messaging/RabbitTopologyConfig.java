@@ -40,4 +40,14 @@ public class RabbitTopologyConfig {
     public Binding lessonCompletedBinding(Queue lessonCompletedQueue, TopicExchange domainExchange) {
         return BindingBuilder.bind(lessonCompletedQueue).to(domainExchange).with("learning.lesson-completed.v1");
     }
+
+    @Bean
+    public Queue noteExcellentQueue() {
+        return new Queue("bc.marketing.interaction-note-excellent.v1", true, false, false);
+    }
+
+    @Bean
+    public Binding noteExcellentBinding(Queue noteExcellentQueue, TopicExchange domainExchange) {
+        return BindingBuilder.bind(noteExcellentQueue).to(domainExchange).with("interaction.note-excellent.v1");
+    }
 }
