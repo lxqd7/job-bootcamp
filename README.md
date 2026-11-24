@@ -131,6 +131,14 @@ node scripts\seed-demo.mjs
 node tests\acceptance\s16a-demo-seed.mjs
 ```
 
+S17-b 提供完整旅程脚本（每次创建新的演示学生；会重设 teacher01 到演示课程 A/R1）：
+
+```powershell
+node scripts\demo-journey.mjs
+```
+
+旅程覆盖：注册 → 免费课领取 → 签到 → 买 A 并完成首节 → 路线 R1 抵扣 → 领券并 AUTO 买 C → 代码作业 mock AI → 教师福利题 → 问答/笔记 → 积分兑换 → C 退款与来源撤销。输出会列出账号、课程、订单、提交和兑换 ID，可继续在学生端页面查看。
+
 种子通过 API 创建 3 门演示付费课（各 10 节）、路线 R1/R2、教师分配、章节选择题、活动券与积分兑换、演示账号购课/路线抵扣/免费领取、公开/私密/采集笔记、公开/匿名问答和教师回答。固定名称/幂等键允许重复执行；积分/债务夹具直接更新 marketing 表，只面向虚构演示账号。
 
 演示账号（虚构）：`student01`～`student03`、`teacher01`～`teacher02`、`admin01`；密码默认 `Demo@123456`，可用 `DEMO_PASSWORD` 覆盖。
@@ -165,6 +173,7 @@ node tests\acceptance\s16a-demo-seed.mjs
 | 后端测试 | `backend\mvnw.cmd -B verify`（当前 45 个测试） |
 | 前端 | `npm run typecheck`、`npm run build` |
 | 演示种子/权限 | `node tests\acceptance\s16a-demo-seed.mjs`、`node tests\acceptance\s16a-security-matrix.mjs` |
+| 完整演示旅程 | `node scripts\demo-journey.mjs` |
 | 故障恢复 | `node tests\acceptance\s16b-fault-recovery.mjs` |
 | 并发/性能/EXPLAIN | `node tests\acceptance\s16c-concurrency.mjs`、`node tests\acceptance\s16c-price-explain.mjs` |
 | 分阶段接口/UI | `tests/acceptance/s02a…` 至 `s15c…` 的脚本；每个阶段记录在 `tests/results/Sxx-验证记录.md` |
