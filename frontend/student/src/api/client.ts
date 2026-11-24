@@ -27,6 +27,8 @@ import type {
   TradeQuote,
   ActivityView,
   UserCouponView,
+  ExchangeProjectStudentView,
+  ExchangeRecordView,
   AssignmentProgress,
   AttemptView,
   ReviewView,
@@ -209,6 +211,48 @@ export async function loadMyCoupons(
   if (data.code !== 'OK') {
     throw new Error(data.message || '我的券接口返回异常')
   }
+  return data.data
+}
+
+export async function loadExchangeCatalog(
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<ExchangeProjectStudentView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<ExchangeProjectStudentView>>>(
+    '/api/v1/exchange-projects', { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '兑换项目加载失败')
+  return data.data
+}
+
+export async function exchangePoints(
+  projectId: string,
+  expectedRevision: number,
+  requestKey: string
+): Promise<{ exchangeId: string; projectId: string; projectRevision: number; pointsSpent: number; userCouponId: string; balance: number; createdAt: string }> {
+  const { data } = await http.post<ApiEnvelope<{
+    exchangeId: string
+    projectId: string
+    projectRevision: number
+    pointsSpent: number
+    userCouponId: string
+    balance: number
+    createdAt: string
+  }>>(`/api/v1/exchange-projects/${projectId}/exchanges`,
+    { expectedRevision },
+    { headers: { 'Idempotency-Key': requestKey } })
+  if (data.code !== 'OK') throw new Error(data.message || '积分兑换失败')
+  return data.data
+}
+
+export async function loadMyExchanges(
+  page = 1,
+  pageSize = 20
+): Promise<PageResponse<ExchangeRecordView>> {
+  const { data } = await http.get<ApiEnvelope<PageResponse<ExchangeRecordView>>>(
+    '/api/v1/me/exchanges', { params: { page, pageSize } }
+  )
+  if (data.code !== 'OK') throw new Error(data.message || '兑换记录加载失败')
   return data.data
 }
 

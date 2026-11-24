@@ -8,6 +8,7 @@ public record UserCouponView(
         String sourceType,
         Long sourceGroupId,
         Long sourceItemId,
+        String sourceName,
         LocalDateTime validFrom,
         LocalDateTime validUntil,
         String status,

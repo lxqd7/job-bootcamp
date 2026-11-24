@@ -8,6 +8,7 @@ import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.marketing.domain.Activity;
 import com.jobbootcamp.marketing.domain.ActivityItem;
 import com.jobbootcamp.marketing.domain.CouponRule;
+import com.jobbootcamp.marketing.domain.ExchangeProject;
 import com.jobbootcamp.marketing.domain.UserCoupon;
 import com.jobbootcamp.marketing.domain.dto.ActivityItemRequest;
 import com.jobbootcamp.marketing.domain.dto.ActivityRequest;
@@ -21,6 +22,7 @@ import com.jobbootcamp.marketing.infrastructure.AcquisitionMapper;
 import com.jobbootcamp.marketing.infrastructure.ActivityItemMapper;
 import com.jobbootcamp.marketing.infrastructure.ActivityMapper;
 import com.jobbootcamp.marketing.infrastructure.CouponRuleMapper;
+import com.jobbootcamp.marketing.infrastructure.ExchangeProjectMapper;
 import com.jobbootcamp.marketing.infrastructure.UserCouponMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,7 @@ public class CouponService {
     private final UserCouponMapper userCouponMapper;
     private final AcquisitionMapper acquisitionMapper;
     private final AcquisitionCounterMapper counterMapper;
+    private final ExchangeProjectMapper exchangeProjectMapper;
     private final TransactionTemplate transactionTemplate;
 
     public CouponService(ActivityMapper activityMapper,
@@ -61,6 +64,7 @@ public class CouponService {
                          UserCouponMapper userCouponMapper,
                          AcquisitionMapper acquisitionMapper,
                          AcquisitionCounterMapper counterMapper,
+                         ExchangeProjectMapper exchangeProjectMapper,
                          PlatformTransactionManager transactionManager) {
         this.activityMapper = activityMapper;
         this.itemMapper = itemMapper;
@@ -68,6 +72,7 @@ public class CouponService {
         this.userCouponMapper = userCouponMapper;
         this.acquisitionMapper = acquisitionMapper;
         this.counterMapper = counterMapper;
+        this.exchangeProjectMapper = exchangeProjectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -411,8 +416,16 @@ public class CouponService {
                 display = "EXPIRED";
             }
         }
+        String sourceName = null;
+        if (ACTIVITY.equals(coupon.getSourceType()) && coupon.getSourceGroupId() != null) {
+            Activity activity = activityMapper.selectById(coupon.getSourceGroupId());
+            sourceName = activity == null ? null : activity.getName();
+        } else if ("EXCHANGE".equals(coupon.getSourceType()) && coupon.getSourceGroupId() != null) {
+            ExchangeProject project = exchangeProjectMapper.selectById(coupon.getSourceGroupId());
+            sourceName = project == null ? null : project.getName();
+        }
         return new UserCouponView(coupon.getId(), rule == null ? null : toRuleView(rule),
-                coupon.getSourceType(), coupon.getSourceGroupId(), coupon.getSourceItemId(),
+                coupon.getSourceType(), coupon.getSourceGroupId(), coupon.getSourceItemId(), sourceName,
                 coupon.getValidFrom(), coupon.getValidUntil(), coupon.getStatus(), display,
                 coupon.getLockedOrderId(), coupon.getUsedOrderId(), coupon.getCreatedAt());
     }

@@ -29,6 +29,14 @@ public interface AcquisitionCounterMapper {
                             @Param("sourceType") String sourceType,
                             @Param("sourceItemId") Long sourceItemId);
 
+    @Select("""
+            SELECT COALESCE(MAX(total_count), 0) FROM acquisition_counter
+            WHERE user_id = #{userId} AND source_type = #{sourceType} AND source_item_id = #{sourceItemId}
+            """)
+    Integer selectCount(@Param("userId") Long userId,
+                        @Param("sourceType") String sourceType,
+                        @Param("sourceItemId") Long sourceItemId);
+
     @Update("""
             UPDATE acquisition_counter SET total_count = total_count + 1, updated_at = #{now}
             WHERE user_id = #{userId} AND source_type = #{sourceType} AND source_item_id = #{sourceItemId}

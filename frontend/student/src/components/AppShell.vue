@@ -16,6 +16,7 @@ const links = computed(() => [
   { to: '/me/routes', label: '我的路线' },
   { to: '/me/notes', label: '我的笔记' },
   { to: '/activities', label: '活动' },
+  { to: '/exchange', label: '积分兑换' },
   { to: '/me/coupons', label: '我的券' },
   { to: '/orders', label: '订单' },
   { to: '/sign-in', label: '签到' },

@@ -1,12 +1,19 @@
 package com.jobbootcamp.marketing.application;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jobbootcamp.common.error.BusinessException;
 import com.jobbootcamp.common.error.ErrorCode;
 import com.jobbootcamp.marketing.domain.CouponRule;
 import com.jobbootcamp.marketing.domain.ExchangeProject;
 import com.jobbootcamp.marketing.domain.ExchangeRecord;
 import com.jobbootcamp.marketing.domain.UserCoupon;
+import com.jobbootcamp.marketing.domain.dto.CouponRuleView;
+import com.jobbootcamp.marketing.domain.dto.ExchangeProjectStudentView;
+import com.jobbootcamp.marketing.domain.dto.ExchangeRecordView;
 import com.jobbootcamp.marketing.domain.dto.ExchangeResult;
+import com.jobbootcamp.marketing.domain.dto.PageResponse;
 import com.jobbootcamp.marketing.domain.dto.PointsSpendResult;
 import com.jobbootcamp.marketing.infrastructure.AcquisitionCounterMapper;
 import com.jobbootcamp.marketing.infrastructure.AcquisitionMapper;
@@ -63,9 +70,7 @@ public class ExchangeService {
 
     public ExchangeResult exchange(Long userId, String role, Long projectId,
                                    Long expectedRevision, String requestKey) {
-        if (!"STUDENT".equals(role)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "只有学生可以兑换积分");
-        }
+        requireStudent(role);
         String key = normalizeKey(requestKey);
         ExchangeRecord existing = recordMapper.findByUserAndRequestKey(userId, key);
         if (existing != null) {
@@ -84,6 +89,71 @@ public class ExchangeService {
                 throw new BusinessException(ErrorCode.CONFLICT, "兑换请求正在处理，请稍后重试");
             }
             return existingResult(raced, projectId);
+        }
+    }
+
+    public PageResponse<ExchangeProjectStudentView> listAvailable(Long userId, String role,
+                                                                 int page, int pageSize) {
+        requireStudent(role);
+        IPage<ExchangeProject> result = projectMapper.selectPage(
+                new Page<>(Math.max(1, page), Math.min(100, Math.max(1, pageSize))),
+                Wrappers.<ExchangeProject>lambdaQuery()
+                        .eq(ExchangeProject::getState, ONLINE)
+                        .orderByDesc(ExchangeProject::getId));
+        LocalDateTime now = now();
+        return new PageResponse<>(result.getRecords().stream()
+                .map(project -> studentView(userId, project, now)).toList(),
+                result.getTotal(), result.getCurrent(), result.getSize());
+    }
+
+    public PageResponse<ExchangeRecordView> myExchanges(Long userId, String role, int page, int pageSize) {
+        requireStudent(role);
+        IPage<ExchangeRecord> result = recordMapper.selectPage(
+                new Page<>(Math.max(1, page), Math.min(100, Math.max(1, pageSize))),
+                Wrappers.<ExchangeRecord>lambdaQuery()
+                        .eq(ExchangeRecord::getUserId, userId)
+                        .orderByDesc(ExchangeRecord::getId));
+        return new PageResponse<>(result.getRecords().stream().map(this::recordView).toList(),
+                result.getTotal(), result.getCurrent(), result.getSize());
+    }
+
+    private ExchangeProjectStudentView studentView(Long userId, ExchangeProject project, LocalDateTime now) {
+        CouponRule rule = ruleMapper.selectById(project.getRuleId());
+        int remaining = Math.max(0, project.getStockTotal() - project.getStockUsed());
+        int count = counterMapper.selectCount(userId, EXCHANGE, project.getId());
+        boolean canExchange = now.isBefore(project.getCloseAt()) && !now.isBefore(project.getOpenAt())
+                && remaining > 0 && count < project.getPerUserLimit();
+        return new ExchangeProjectStudentView(project.getId(), project.getName(),
+                rule == null ? null : toRuleView(rule), project.getPointsPrice(), remaining,
+                project.getPerUserLimit(), count, canExchange, project.getOpenAt(),
+                project.getCloseAt(), project.getRevision());
+    }
+
+    private ExchangeRecordView recordView(ExchangeRecord record) {
+        ExchangeProject project = projectMapper.selectById(record.getProjectId());
+        UserCoupon coupon = userCouponMapper.selectById(record.getUserCouponId());
+        CouponRule rule = coupon == null ? null : ruleMapper.selectById(coupon.getRuleId());
+        return new ExchangeRecordView(record.getId(), record.getProjectId(),
+                project == null ? "兑换项目已删除" : project.getName(), record.getProjectRevision(),
+                record.getPointsSpent(), record.getUserCouponId(),
+                rule == null ? null : toRuleView(rule),
+                coupon == null ? null : coupon.getStatus(),
+                coupon == null ? null : coupon.getValidFrom(),
+                coupon == null ? null : coupon.getValidUntil(),
+                record.getBalanceAfter(), record.getCreatedAt());
+    }
+
+    private CouponRuleView toRuleView(CouponRule rule) {
+        return new CouponRuleView(rule.getId(), rule.getRuleKey(), rule.getVersionNo(), rule.getType(),
+                rule.getScope(), rule.getTargetId(), rule.getThresholdCent(), rule.getAmountCent(),
+                rule.getPayRateBps(), rule.getMaxDiscountCent(), rule.getValidityType(),
+                rule.getValidFrom(), rule.getValidUntil(), rule.getValidDays(),
+                Boolean.TRUE.equals(rule.getIssued()), rule.getRevision());
+    }
+
+    private void requireStudent(String role) {
+        if (!"STUDENT".equals(role)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "只有学生可以兑换积分");
         }
     }
 

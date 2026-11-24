@@ -66,7 +66,13 @@ onMounted(load)
       <p class="stage">优惠券</p>
       <h1>我的券</h1>
       <p class="lead">
-        展示已领取的优惠券及其来源、有效期和当前状态。券的锁定、使用与结算明细将在 S08-b/c 接入。
+        展示已领取的优惠券及其来源、有效期和当前状态。活动券和积分兑换券按来源区分，
+        兑换券不会因项目下架或调价而改变已发券内容。
+      </p>
+      <p class="links">
+        <RouterLink to="/activities">领券活动</RouterLink>
+        <RouterLink to="/exchange">积分兑换</RouterLink>
+        <RouterLink to="/me/exchanges">兑换记录</RouterLink>
       </p>
     </section>
 
@@ -95,13 +101,15 @@ onMounted(load)
           <p class="meta">
             {{ coupon.rule ? describeCouponScope(coupon.rule) : '' }} ·
             {{ sourceLabels[coupon.sourceType] ?? coupon.sourceType }}
+            <template v-if="coupon.sourceName"> · {{ coupon.sourceName }}</template>
           </p>
           <p class="meta">有效期 {{ formatTimestamp(coupon.validFrom) }} 至 {{ formatTimestamp(coupon.validUntil) }}</p>
         </div>
         <span class="coupon-id">#{{ coupon.id }}</span>
       </article>
       <p v-if="coupons.length === 0" class="empty">
-        还没有符合条件的券。可以到 <RouterLink to="/activities">领券活动</RouterLink> 查看。
+        还没有符合条件的券。可以到 <RouterLink to="/activities">领券活动</RouterLink> 领取，或到
+        <RouterLink to="/exchange">积分兑换</RouterLink> 兑换。
       </p>
     </section>
 
@@ -132,6 +140,13 @@ h1 {
   max-width: 66ch;
   color: var(--muted);
   line-height: 1.75;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
 }
 
 .toolbar {

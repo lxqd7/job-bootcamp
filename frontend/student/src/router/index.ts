@@ -16,6 +16,8 @@ import MyCoursesView from '../views/MyCoursesView.vue'
 import MyRoutesView from '../views/MyRoutesView.vue'
 import ActivitiesView from '../views/ActivitiesView.vue'
 import MyCouponsView from '../views/MyCouponsView.vue'
+import ExchangeView from '../views/ExchangeView.vue'
+import MyExchangesView from '../views/MyExchangesView.vue'
 import LearningView from '../views/LearningView.vue'
 import AssignmentView from '../views/AssignmentView.vue'
 import SubmissionDetailView from '../views/SubmissionDetailView.vue'
@@ -53,6 +55,8 @@ const router = createRouter({
     { path: '/me/courses', name: 'my-courses', component: MyCoursesView, meta: { roles: ['STUDENT'] } },
     { path: '/me/routes', name: 'my-routes', component: MyRoutesView, meta: { roles: ['STUDENT'] } },
     { path: '/activities', name: 'activities', component: ActivitiesView, meta: { roles: ['STUDENT'] } },
+    { path: '/exchange', name: 'exchange', component: ExchangeView, meta: { roles: ['STUDENT'] } },
+    { path: '/me/exchanges', name: 'my-exchanges', component: MyExchangesView, meta: { roles: ['STUDENT'] } },
     { path: '/me/coupons', name: 'my-coupons', component: MyCouponsView, meta: { roles: ['STUDENT'] } },
     { path: '/learning/courses/:id', name: 'learning', component: LearningView, meta: { roles: ['STUDENT'] } },
     { path: '/assignments/:id', name: 'assignment', component: AssignmentView, meta: { roles: ['STUDENT'] } },

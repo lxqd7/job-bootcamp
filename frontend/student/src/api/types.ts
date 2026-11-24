@@ -378,12 +378,42 @@ export interface UserCouponView {
   sourceType: string
   sourceGroupId: string
   sourceItemId: string
+  sourceName: string | null
   validFrom: string
   validUntil: string
   status: string
   displayStatus: string
   lockedOrderId: string | null
   usedOrderId: string | null
+  createdAt: string
+}
+
+export interface ExchangeProjectStudentView {
+  id: string
+  name: string
+  rule: CouponRuleView | null
+  pointsPrice: number
+  stockRemaining: number
+  perUserLimit: number
+  userExchangedCount: number
+  canExchange: boolean
+  openAt: string
+  closeAt: string
+  revision: number
+}
+
+export interface ExchangeRecordView {
+  exchangeId: string
+  projectId: string
+  projectName: string
+  projectRevision: number
+  pointsSpent: number
+  userCouponId: string
+  rule: CouponRuleView | null
+  couponStatus: string | null
+  validFrom: string | null
+  validUntil: string | null
+  balanceAfter: number
   createdAt: string
 }
 export interface RefundIntentView {
