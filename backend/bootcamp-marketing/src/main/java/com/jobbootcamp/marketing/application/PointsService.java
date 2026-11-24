@@ -14,6 +14,7 @@ import com.jobbootcamp.marketing.domain.SignRecord;
 import com.jobbootcamp.marketing.domain.dto.PageResponse;
 import com.jobbootcamp.marketing.domain.dto.PointsAwardResult;
 import com.jobbootcamp.marketing.domain.dto.PointsLedgerView;
+import com.jobbootcamp.marketing.domain.dto.PointsSpendResult;
 import com.jobbootcamp.marketing.domain.dto.PointsSummary;
 import com.jobbootcamp.marketing.domain.dto.SignResult;
 import com.jobbootcamp.marketing.domain.dto.SignStatus;
@@ -30,6 +31,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
@@ -52,6 +54,7 @@ public class PointsService {
     public static final String TYPE_SIGN = "SIGN";
     public static final String TYPE_EXCELLENT = "EXCELLENT";
     public static final String TYPE_REVOKE = "REVOKE";
+    public static final String TYPE_EXCHANGE = "EXCHANGE";
     private static final int EXCELLENT_POINTS = 5;
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final String PROJECTION_EVENT = "marketing.projection-changed.v1";
@@ -275,6 +278,50 @@ public class PointsService {
         ledgerMapper.insert(ledger);
         writeProjectionEvent(original.getUserId(), original.getBusinessMonth(), ledger.getId(), nowUtc);
         revocationMapper.markApplied(revocation.getNoteId(), ledger.getId(), nowUtc);
+    }
+
+    /**
+     * 积分兑换扣分：只扣可用余额，不动月榜和债务；流水业务键为用户+请求键。
+     * 必须在兑换本地事务内调用，失败由外层事务整体回滚。
+     */
+    @Transactional
+    public PointsSpendResult spendForExchange(long userId, String requestKey, int points) {
+        if (userId <= 0 || points <= 0 || requestKey == null || requestKey.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "兑换扣分参数不合法");
+        }
+        String businessKey = userId + ":" + requestKey;
+        PointsLedger existing = findLedger(TYPE_EXCHANGE, businessKey);
+        if (existing != null) {
+            return new PointsSpendResult(existing.getId(), Math.toIntExact(-existing.getRewardPoints()),
+                    existing.getBalanceAfter(), existing.getDebtAfter());
+        }
+        PointsAccount account = accountMapper.selectForUpdate(userId);
+        if (account == null || account.getAvailable() < points) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_POINTS, "可用积分不足");
+        }
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDate businessDate = LocalDate.now(SHANGHAI);
+        String businessMonth = YearMonth.from(businessDate).toString();
+        long available = account.getAvailable() - points;
+        accountMapper.updateBalances(userId, available, account.getDebt(), nowUtc);
+
+        PointsLedger ledger = new PointsLedger();
+        ledger.setUserId(userId);
+        ledger.setType(TYPE_EXCHANGE);
+        ledger.setBusinessKey(businessKey);
+        ledger.setRewardPoints((long) -points);
+        ledger.setBalanceDelta((long) -points);
+        ledger.setDebtDelta(0L);
+        ledger.setRankDelta(0L);
+        ledger.setBalanceAfter(available);
+        ledger.setDebtAfter(account.getDebt());
+        ledger.setBusinessDate(businessDate);
+        ledger.setBusinessMonth(businessMonth);
+        ledger.setOccurredAt(nowUtc);
+        ledger.setResultCode("SPENT");
+        ledger.setCreatedAt(nowUtc);
+        ledgerMapper.insert(ledger);
+        return new PointsSpendResult(ledger.getId(), points, available, account.getDebt());
     }
 
     public SignResult signIn(long userId) {
